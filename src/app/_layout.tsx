@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,7 +6,7 @@ import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { aplicarApariencia, leerApariencia } from '@/almacenamiento/apariencia';
+import { inicializarApariencia } from '@/almacenamiento/apariencia';
 import { AvisosProvider } from '@/contexto/AvisosContexto';
 import { ReservasProvider } from '@/contexto/ReservasContexto';
 import { SesionProvider, useSesion } from '@/contexto/SesionContexto';
@@ -16,13 +16,22 @@ import { ARCHIVOS_FUENTES, FUENTES, useTema } from '@/tema';
 SplashScreen.preventAutoHideAsync();
 configurarNotificaciones();
 
-// La apariencia elegida se aplica antes del primer dibujo, así no parpadea el otro modo.
-aplicarApariencia(leerApariencia());
-
 export default function LayoutRaiz() {
   const [fuentesListas, errorFuentes] = useFonts(ARCHIVOS_FUENTES);
+  const [aparienciaLista, setAparienciaLista] = useState(false);
+
+  useEffect(() => {
+    let vigente = true;
+    inicializarApariencia()
+      .catch((error) => console.error('No se pudo inicializar la apariencia:', error))
+      .finally(() => {
+        if (vigente) setAparienciaLista(true);
+      });
+    return () => { vigente = false; };
+  }, []);
+
   // Si la fuente fallara, la app sigue con la del sistema antes que quedar en blanco.
-  if (!fuentesListas && !errorFuentes) return null;
+  if ((!fuentesListas && !errorFuentes) || !aparienciaLista) return null;
 
   return (
     <SafeAreaProvider>

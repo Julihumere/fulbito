@@ -2,11 +2,12 @@
  * Inicio. Se puede usar sin cuenta: muestra los once espacios con filtros por
  * deporte y complejo. Con sesión, suma el próximo turno con su código.
  */
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useNetworkState } from 'expo-network';
-import { router, useRootNavigationState } from 'expo-router';
+import { router, useFocusEffect, useRootNavigationState } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { guardarFavoritos, leerFavoritos } from '@/almacenamiento/favoritos';
 import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
 import { CespedFranjas, CirculoCal } from '@/componentes/Cancha';
@@ -20,6 +21,7 @@ import { useAvisos } from '@/contexto/AvisosContexto';
 import { useReservas } from '@/contexto/ReservasContexto';
 import { useSesion } from '@/contexto/SesionContexto';
 import { useCatalogo } from '@/hooks/useCatalogo';
+import { aErrorApi, usuarios as servicioUsuarios } from '@/servicios';
 import { ESPACIADO, RADIO, TOQUE_MINIMO, useTema } from '@/tema';
 import type { Espacio, Rol } from '@/tipos';
 import { primerNombre } from '@/utilidades/formato';
@@ -34,7 +36,7 @@ export default function Inicio() {
   const { c } = useTema();
   const insets = useSafeAreaInsets();
   const navegacion = useRootNavigationState();
-  const { estado, usuario, primeraVez } = useSesion();
+  const { estado, usuario, primeraVez, actualizarUsuario } = useSesion();
   const catalogo = useCatalogo();
   const proximo = useReservas();
   const red = useNetworkState();
@@ -42,6 +44,27 @@ export default function Inicio() {
   const [deporteId, setDeporteId] = useState<string | null>(null);
   const [complejo, setComplejo] = useState<string | null>(null);
   const [refrescando, setRefrescando] = useState(false);
+  const [favoritosInvitado, setFavoritosInvitado] = useState<string[]>([]);
+  const [favoritosCargados, setFavoritosCargados] = useState(false);
+  const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const [errorFavorito, setErrorFavorito] = useState<string | null>(null);
+  const favoritos = usuario?.espaciosFavoritos ?? favoritosInvitado;
+
+  useFocusEffect(useCallback(() => {
+    let vigente = true;
+    if (usuario) {
+      setFavoritosCargados(true);
+      return () => { vigente = false; };
+    }
+    setFavoritosCargados(false);
+    leerFavoritos().then((ids) => {
+      if (vigente) {
+        setFavoritosInvitado(ids);
+        setFavoritosCargados(true);
+      }
+    });
+    return () => { vigente = false; };
+  }, [usuario]));
 
   // La primera vez que se abre la app se ofrece el ingreso (con salida a "mirar sin cuenta").
   useEffect(() => {
@@ -59,9 +82,12 @@ export default function Inicio() {
   const visibles = useMemo(
     () =>
       catalogo.espacios
-        .filter((e) => (!deporteId || e.deporteId === deporteId) && (!complejo || e.complejo === complejo))
+      .filter((e) =>
+        (!deporteId || e.deporteId === deporteId) &&
+        (!complejo || e.complejo === complejo) &&
+        (!soloFavoritos || favoritos.includes(e.id)))
         .sort((a, b) => Number(b.activo) - Number(a.activo)),
-    [catalogo.espacios, deporteId, complejo],
+    [catalogo.espacios, deporteId, complejo, soloFavoritos, favoritos],
   );
 
   const sinConexion = red.isConnected === false || red.isInternetReachable === false;
@@ -73,11 +99,31 @@ export default function Inicio() {
     setRefrescando(false);
   }
 
+  async function alternarFavorito(id: string) {
+    if (!favoritosCargados) return;
+    setErrorFavorito(null);
+    try {
+      if (usuario) {
+        await actualizarUsuario(await servicioUsuarios.alternarFavorito(id));
+      } else {
+        const actuales = await leerFavoritos();
+        const siguientes = actuales.includes(id)
+          ? actuales.filter((favoritoId) => favoritoId !== id)
+          : [...actuales, id];
+        await guardarFavoritos(siguientes);
+        setFavoritosInvitado(siguientes);
+      }
+    } catch (e) {
+      setErrorFavorito(aErrorApi(e).message);
+    }
+  }
+
   const encabezado = (
     <View>
       <Cabecera topInset={insets.top} />
 
       <View style={estilos.bloque}>
+        {errorFavorito && <Aviso tipo="error" titulo="No se pudo guardar el favorito" detalle={errorFavorito} />}
         {(sinConexion || catalogo.copiaDel) && catalogo.espacios.length > 0 && (
           <Aviso
             tipo="aviso"
@@ -104,7 +150,7 @@ export default function Inicio() {
         )}
         {usuario && !proximo.proxima && usuario.rol === 'jugador' && (
           <Texto variante="etiqueta" color={c.textoSuave}>
-            No tenés turnos reservados. Elegí un espacio para ver qué hay libre.
+            No tenés reservas próximas. Elegí un espacio para consultar los horarios disponibles.
           </Texto>
         )}
 
@@ -160,9 +206,17 @@ export default function Inicio() {
               ))}
             </ScrollView>
 
-            <Texto variante="chico" color={c.textoSuave} style={estilos.separado}>
-              {visibles.length === 1 ? '1 espacio' : `${visibles.length} espacios`}
-            </Texto>
+            <View style={estilos.filaResultados}>
+              <Texto variante="chico" color={c.textoSuave}>
+                {visibles.length === 1 ? '1 espacio' : `${visibles.length} espacios`}
+              </Texto>
+              <Chip
+                texto={`Favoritos (${favoritos.length})`}
+                icono={soloFavoritos ? 'heart' : 'heart-outline'}
+                activo={soloFavoritos}
+                onPress={() => setSoloFavoritos((actual) => !actual)}
+              />
+            </View>
           </View>
         )}
       </View>
@@ -190,7 +244,7 @@ export default function Inicio() {
     vacio = (
       <View style={estilos.centro}>
         <Texto centrado color={c.textoSuave}>
-          No hay espacios con esos filtros.
+          {soloFavoritos ? 'Todavía no marcaste espacios favoritos.' : 'No hay espacios con esos filtros.'}
         </Texto>
         <Boton
           titulo="Ver todos"
@@ -199,6 +253,7 @@ export default function Inicio() {
           onPress={() => {
             setDeporteId(null);
             setComplejo(null);
+            setSoloFavoritos(false);
           }}
         />
       </View>
@@ -220,6 +275,21 @@ export default function Inicio() {
             onPress={() => router.push({ pathname: '/espacio/[id]', params: { id: item.id } })}
             onTurnos={item.activo ? () => router.push({ pathname: '/disponibilidad/[id]', params: { id: item.id } }) : undefined}
           />
+          <Pressable
+            onPress={() => { void alternarFavorito(item.id); }}
+            disabled={!favoritosCargados}
+            accessibilityRole="button"
+            accessibilityLabel={favoritos.includes(item.id) ? `Quitar ${item.nombre} de favoritos` : `Agregar ${item.nombre} a favoritos`}
+            accessibilityHint="Guarda este espacio en tu lista de favoritos"
+            style={({ pressed }) => [
+              estilos.botonFavorito,
+              { backgroundColor: c.superficie },
+              pressed && estilos.botonFavoritoPresionado,
+              !favoritosCargados && estilos.favoritoDeshabilitado,
+            ]}
+          >
+            <Icono nombre={favoritos.includes(item.id) ? 'heart' : 'heart-outline'} color={favoritos.includes(item.id) ? c.peligro : c.texto} tamano={20} />
+          </Pressable>
         </View>
       )}
       contentContainerStyle={{ paddingBottom: insets.bottom + ESPACIADO.xl }}
@@ -263,7 +333,7 @@ function Cabecera({ topInset }: { topInset: number }) {
         </Texto>
         <Texto color={c.textoSobreCespedSuave}>
           {usuario
-            ? 'Elegí un espacio para ver sus turnos.'
+            ? 'Tu próximo partido empieza acá.'
             : 'Mirá qué hay libre. Para reservar, entrá con tu cuenta.'}
         </Texto>
       </View>
@@ -339,6 +409,10 @@ const estilos = StyleSheet.create({
   filtros: { gap: ESPACIADO.s },
   chips: { gap: ESPACIADO.s, paddingRight: ESPACIADO.l },
   separado: { marginTop: ESPACIADO.xs },
-  item: { paddingHorizontal: ESPACIADO.l, paddingTop: ESPACIADO.m },
+  item: { position: 'relative', paddingHorizontal: ESPACIADO.l, paddingTop: ESPACIADO.m },
+  filaResultados: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  botonFavorito: { position: 'absolute', top: ESPACIADO.m + ESPACIADO.xs, left: ESPACIADO.l + ESPACIADO.xs, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', zIndex: 1, elevation: 2 },
+  botonFavoritoPresionado: { opacity: 0.75, transform: [{ scale: 0.95 }] },
+  favoritoDeshabilitado: { opacity: 0.5 },
   centro: { alignItems: 'center', gap: ESPACIADO.m, paddingVertical: ESPACIADO.xxl },
 });

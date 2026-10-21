@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
@@ -20,14 +20,20 @@ const OPCIONES: { valor: Apariencia; texto: string; icono: 'sunny-outline' | 'mo
 
 export default function Ajustes() {
   const { c } = useTema();
-  const [apariencia, setApariencia] = useState<Apariencia>(leerApariencia);
+  const [apariencia, setApariencia] = useState<Apariencia>('sistema');
   const { refrescarPerfil } = useSesion();
   const reservas = useReservas();
   const avisos = useAvisos();
 
+  useEffect(() => {
+    let vigente = true;
+    leerApariencia().then((valor) => { if (vigente) setApariencia(valor); });
+    return () => { vigente = false; };
+  }, []);
+
   function elegir(valor: Apariencia) {
     setApariencia(valor);
-    aplicarApariencia(valor);
+    void aplicarApariencia(valor);
   }
 
   function reiniciar() {

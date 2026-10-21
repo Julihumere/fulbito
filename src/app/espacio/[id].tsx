@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { CLAVES, leerDeCache } from '@/almacenamiento/cache';
+import { guardarFavoritos, leerFavoritos } from '@/almacenamiento/favoritos';
 import { borrarMedios, copiarFotoElegida, estadoGuardado, guardarMedios, uriLocal } from '@/almacenamiento/medios';
 import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
@@ -38,6 +39,15 @@ export default function FichaEspacio() {
   const [mensaje, setMensaje] = useState<{ tipo: 'aviso' | 'error'; titulo: string; detalle?: string } | null>(null);
   // Cuántas fotos y videos de este espacio hay guardados en el teléfono.
   const [medios, setMedios] = useState({ guardados: 0, total: 0 });
+  const [favoritosInvitado, setFavoritosInvitado] = useState<string[]>([]);
+
+  useEffect(() => {
+    let vigente = true;
+    if (!usuario) {
+      leerFavoritos().then((ids) => { if (vigente) setFavoritosInvitado(ids); });
+    }
+    return () => { vigente = false; };
+  }, [id, usuario]);
 
   useEffect(() => {
     let cancelado = false;
@@ -97,14 +107,22 @@ export default function FichaEspacio() {
   }
 
   const esPersonal = usuario?.rol === 'encargado' || usuario?.rol === 'administrador';
-  const esFavorito = !!usuario && usuario.espaciosFavoritos.includes(espacio.id);
+  const esFavorito = usuario
+    ? usuario.espaciosFavoritos.includes(espacio.id)
+    : favoritosInvitado.includes(espacio.id);
   const ancho = width - ESPACIADO.l * 2;
   const fotos = espacio.imagenes.map((u) => uriLocal(espacio.id, u) ?? u);
   const video = espacio.videoUrl ? (uriLocal(espacio.id, espacio.videoUrl) ?? espacio.videoUrl) : null;
 
   async function alternarFavorito() {
+    if (!espacio) return;
     if (!usuario) {
-      router.push('/login');
+      const actuales = await leerFavoritos();
+      const siguientes = actuales.includes(espacio.id)
+        ? actuales.filter((favoritoId) => favoritoId !== espacio.id)
+        : [...actuales, espacio.id];
+      await guardarFavoritos(siguientes);
+      setFavoritosInvitado(siguientes);
       return;
     }
     try {
@@ -175,11 +193,11 @@ export default function FichaEspacio() {
               onPress={alternarFavorito}
               accessibilityRole="button"
               accessibilityLabel={esFavorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
-              accessibilityHint="Te avisamos cuando se libere un turno de este espacio"
+              accessibilityHint="Guarda o quita este espacio de tus favoritos"
               hitSlop={10}
               style={estilos.estrella}
             >
-              <Icono nombre={esFavorito ? 'star' : 'star-outline'} color={c.textoSobreCesped} tamano={26} />
+              <Icono nombre={esFavorito ? 'heart' : 'heart-outline'} color={c.textoSobreCesped} tamano={26} />
             </Pressable>
           ),
         }}
