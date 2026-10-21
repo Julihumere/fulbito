@@ -3,6 +3,7 @@ import { ESPACIADO, FUENTES, RADIO, useTema } from '@/tema';
 import type { Espacio, Reserva, Turno } from '@/tipos';
 import { fechaRelativa, horaCorta, horaDeIso, rangoHorario } from '@/utilidades/fechas';
 import { formatearPrecio } from '@/utilidades/formato';
+import { MAXIMO_ACTIVAS } from '@/utilidades/reglas';
 import { Icono } from './Icono';
 import { Texto } from './Texto';
 
@@ -70,7 +71,7 @@ export function TarjetaProximoTurno({ titulo = 'Tu próximo turno', reserva, tur
             : `Cancelás sin aviso hasta las ${horaDeIso(reserva.cancelableHasta)} del día del turno.`}
         </Texto>
         <Texto variante="chico" color={c.textoSuave}>
-          Reservas activas: {activas} de 3
+          Reservas activas: {activas} de {MAXIMO_ACTIVAS}
         </Texto>
       </View>
     </View>

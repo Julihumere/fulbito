@@ -9,6 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { borrarDeCache, CLAVES, guardarEnCache, leerDeCache } from '@/almacenamiento/cache';
 import { borrarToken, guardarToken, leerToken } from '@/almacenamiento/token';
+import { borrarRecordatorios } from '@/notificaciones';
 import { auth, ErrorApi } from '@/servicios';
 import type { CredencialesIngreso, Usuario } from '@/tipos';
 
@@ -21,6 +22,10 @@ interface ValorSesion {
   primeraVez: boolean;
   iniciarSesion: (credenciales: CredencialesIngreso) => Promise<Usuario>;
   cerrarSesion: () => Promise<void>;
+  /** Reemplaza el usuario (p. ej. después de marcar un favorito) y lo guarda en el teléfono. */
+  actualizarUsuario: (u: Usuario) => Promise<void>;
+  /** Vuelve a pedir el perfil (contadores de cancelaciones y ausencias). */
+  refrescarPerfil: () => Promise<void>;
   marcarBienvenidaVista: () => Promise<void>;
 }
 
@@ -33,7 +38,8 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   const limpiar = useCallback(async () => {
     await borrarToken();
-    await borrarDeCache(CLAVES.usuario, CLAVES.misReservas);
+    await borrarDeCache(CLAVES.usuario, CLAVES.misReservas, CLAVES.agenda, CLAVES.ingresosPendientes);
+    await borrarRecordatorios();
     setUsuario(null);
     setEstado('invitado');
   }, []);
@@ -86,14 +92,29 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     return u;
   }, []);
 
+  const actualizarUsuario = useCallback(async (u: Usuario) => {
+    setUsuario(u);
+    await guardarEnCache(CLAVES.usuario, u);
+  }, []);
+
+  const refrescarPerfil = useCallback(async () => {
+    try {
+      await actualizarUsuario(await auth.obtenerPerfil());
+    } catch {
+      // Sin conexión queda el perfil guardado.
+    }
+  }, [actualizarUsuario]);
+
   const marcarBienvenidaVista = useCallback(async () => {
     setPrimeraVez(false);
     await guardarEnCache(CLAVES.bienvenidaVista, true);
   }, []);
 
   const valor = useMemo<ValorSesion>(
-    () => ({ estado, usuario, primeraVez, iniciarSesion, cerrarSesion: limpiar, marcarBienvenidaVista }),
-    [estado, usuario, primeraVez, iniciarSesion, limpiar, marcarBienvenidaVista],
+    () => ({
+      estado, usuario, primeraVez, iniciarSesion, cerrarSesion: limpiar, actualizarUsuario, refrescarPerfil, marcarBienvenidaVista,
+    }),
+    [estado, usuario, primeraVez, iniciarSesion, limpiar, actualizarUsuario, refrescarPerfil, marcarBienvenidaVista],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

@@ -19,6 +19,18 @@ export interface RespuestaExito<T> {
  */
 export type CodigoError =
   | 'TURNO_OCUPADO'
+  | 'TURNO_PASADO'
+  | 'LIMITE_RESERVAS'
+  | 'CAPACIDAD_EXCEDIDA'
+  | 'ESPACIO_INACTIVO'
+  | 'NO_CANCELABLE'
+  | 'QR_INVALIDO'
+  | 'QR_OTRO_DIA'
+  | 'QR_OTRA_CANCHA'
+  | 'QR_CANCELADO'
+  | 'QR_YA_USADO'
+  | 'DATOS_INVALIDOS'
+  | 'SIN_PERMISO'
   | 'CREDENCIALES_INVALIDAS'
   | 'NO_AUTORIZADO'
   | 'NO_ENCONTRADO'

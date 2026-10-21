@@ -2,6 +2,7 @@ import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icono, type NombreIcono } from '@/componentes/Icono';
+import { useSesion } from '@/contexto/SesionContexto';
 import { FUENTES, useTema } from '@/tema';
 
 function icono(activo: NombreIcono, inactivo: NombreIcono) {
@@ -10,10 +11,12 @@ function icono(activo: NombreIcono, inactivo: NombreIcono) {
   };
 }
 
-/** Barra inferior: Inicio, Mis turnos y Perfil. */
+/** Barra inferior: Inicio, Mis turnos, Gestión (sólo personal) y Perfil. */
 export default function LayoutPestanas() {
   const { c, esNoche } = useTema();
   const insets = useSafeAreaInsets();
+  const { usuario } = useSesion();
+  const esPersonal = usuario?.rol === 'encargado' || usuario?.rol === 'administrador';
   return (
     <Tabs
       screenOptions={{
@@ -29,6 +32,10 @@ export default function LayoutPestanas() {
     >
       <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icono('home', 'home-outline') }} />
       <Tabs.Screen name="turnos" options={{ title: 'Mis turnos', tabBarIcon: icono('calendar', 'calendar-outline') }} />
+      <Tabs.Screen
+        name="gestion"
+        options={{ title: 'Gestión', tabBarIcon: icono('briefcase', 'briefcase-outline'), href: esPersonal ? undefined : null }}
+      />
       <Tabs.Screen name="perfil" options={{ title: 'Perfil', tabBarIcon: icono('person', 'person-outline') }} />
     </Tabs>
   );

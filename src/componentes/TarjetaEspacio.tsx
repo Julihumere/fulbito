@@ -17,9 +17,11 @@ interface Props {
   espacio: Espacio;
   deporte: Deporte | undefined;
   onPress: () => void;
+  /** Atajo directo a la grilla: reservar tiene que ser más rápido que un WhatsApp. */
+  onTurnos?: () => void;
 }
 
-export function TarjetaEspacio({ espacio, deporte, onPress }: Props) {
+export function TarjetaEspacio({ espacio, deporte, onPress, onTurnos }: Props) {
   const { c } = useTema();
   const [fotoOk, setFotoOk] = useState(true);
   const foto = DEPORTES_SIN_FOTO_EN_LISTA.includes(espacio.deporteId) ? undefined : espacio.imagenes[0];
@@ -89,7 +91,22 @@ export function TarjetaEspacio({ espacio, deporte, onPress }: Props) {
               Fuera de servicio
             </Texto>
           )}
-          <Icono nombre="chevron-forward" color={c.textoSuave} tamano={18} />
+          {onTurnos ? (
+            <Pressable
+              onPress={onTurnos}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver turnos de ${espacio.nombre}`}
+              hitSlop={8}
+              style={({ pressed }) => [estilos.turnos, { backgroundColor: c.acento }, pressed && { opacity: 0.8 }]}
+            >
+              <Icono nombre="calendar-outline" color={c.textoSobreAcento} tamano={16} />
+              <Texto variante="chico" peso="negrita" color={c.textoSobreAcento}>
+                Turnos
+              </Texto>
+            </Pressable>
+          ) : (
+            <Icono nombre="chevron-forward" color={c.textoSuave} tamano={18} />
+          )}
         </View>
       </View>
     </Pressable>
@@ -120,4 +137,12 @@ const estilos = StyleSheet.create({
   flex: { flex: 1 },
   rasgos: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: ESPACIADO.m, rowGap: 2 },
   pie: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' },
+  turnos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ESPACIADO.xs,
+    paddingHorizontal: ESPACIADO.m,
+    minHeight: 36,
+    borderRadius: RADIO.pastilla,
+  },
 });

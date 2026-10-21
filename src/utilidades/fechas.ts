@@ -65,6 +65,30 @@ export function restarHoras(iso: string, horas: number): string {
   return `${aFecha(d)}T${dosCifras(d.getUTCHours())}:${dosCifras(d.getUTCMinutes())}:00${ZONA}`;
 }
 
+/** El momento actual (o el pedido) como ISO con zona argentina. */
+export function ahoraIso(ms: number = Date.now()): string {
+  const d = relojArgentino(ms);
+  return `${aFecha(d)}T${dosCifras(d.getUTCHours())}:${dosCifras(d.getUTCMinutes())}:${dosCifras(d.getUTCSeconds())}${ZONA}`;
+}
+
+/** "AAAA-MM-DD" de un ISO con zona, leído en hora argentina. */
+export function fechaDeIso(iso: string): string {
+  return aFecha(relojArgentino(Date.parse(iso)));
+}
+
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/** "Sábado 19 de septiembre" */
+export function fechaLarga(fecha: string): string {
+  const [, m, d] = fecha.split('-').map(Number);
+  return `${DIAS[diaDeLaSemana(fecha)]} ${d} de ${MESES[m - 1]}`;
+}
+
+export const NOMBRES_DIAS = DIAS;
+
 /** "Sábado 19/09" */
 export function fechaCorta(fecha: string): string {
   const [, m, d] = fecha.split('-');

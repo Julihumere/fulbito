@@ -1,6 +1,6 @@
 # Fulbito! — Análisis del pedido
 
-Análisis del documento *Reservas Deportivas — Pedido de aplicación móvil* (Dirección de Deportes de Villaguay, Nahuel Ojeda) y estado de la primera entrega: estructura del proyecto, ingreso y pantalla de inicio.
+Análisis del documento *Reservas Deportivas — Pedido de aplicación móvil* (Dirección de Deportes de Villaguay, Nahuel Ojeda) y estado de la entrega: todas las funciones del pedido andando contra datos inventados.
 
 ## 1. El problema, en una frase
 
@@ -36,20 +36,27 @@ Además, un turno cuyo inicio ya pasó no se puede reservar aunque figure libre.
 
 Hay una pregunta abierta que define dónde vive este código: ¿la API devuelve la grilla ya armada (el tipo `Turno` tiene estado `"fijo"`, lo que sugiere que sí) o la arma la app? (pregunta 6).
 
+El cruce está en `src/utilidades/grilla.ts`, como código puro sin servicios. Hoy lo usa el servidor simulado. Si la API mandara las piezas sueltas, lo puede usar la app tal cual.
+
 ## 4. Arquitectura
 
 ```
 src/
   app/              Pantallas (Expo Router). Sólo UI y navegación.
+    (tabs)/         Inicio, Mis turnos, Gestión (sólo personal) y Perfil.
+    disponibilidad/ La grilla de turnos de un espacio.
+    reserva/        Mi reserva, con el QR.
+    gestion/        Agenda, escaneo, bloqueos, fijas y precios.
   tipos/            Tipos del documento, escritos una vez. pendientes.ts = lo que falta definir.
-  mocks/            Datos inventados, tipados con los mismos tipos.
+  mocks/            Datos inventados y servidor.ts, el servidor simulado.
   servicios/        Única puerta a "el servidor". Hoy mocks, mañana fetch.
-  almacenamiento/   secure-store (token) y kv-store (copias para usar sin señal).
-  contexto/         Sesión.
-  hooks/            Carga de datos con copia local.
+  almacenamiento/   secure-store (token), kv-store (copias sin señal) y archivos (fotos y video).
+  contexto/         Sesión, mis reservas y avisos, compartidos por toda la app.
+  notificaciones/   Recordatorio local y avisos del servidor.
+  hooks/            Catálogo, agenda y ubicación.
   componentes/      Piezas de UI reutilizables.
   tema/             Paletas día/noche, Cascadia Code, espaciados.
-  utilidades/       Fechas en hora argentina, formato de precios.
+  utilidades/       Fechas en hora argentina, cruce de la grilla, reglas, formato de precios.
 ```
 
 Reglas que se cumplen desde el día uno:
@@ -61,20 +68,20 @@ Reglas que se cumplen desde el día uno:
 
 ### Paquetes por capacidad (pedido de la cátedra)
 
-| Capacidad | Paquete | Estado |
+| Capacidad | Paquete | Dónde se usa |
 |---|---|---|
-| Navegación | `expo-router` | ✅ instalado y en uso |
-| Persistencia y red | `expo-sqlite/kv-store`, `expo-network` | ✅ en uso (copias locales, aviso sin conexión) |
-| Seguridad | `expo-secure-store` | ✅ token. `expo-local-authentication` con el escaneo |
-| Háptica | `expo-haptics` | ✅ en el login. Ingreso válido/inválido con el escaneo |
-| Íconos | `@react-native-vector-icons/ionicons` | ✅ (no `@expo/vector-icons`) |
-| Cámara | `expo-camera` (`CameraView`) | próxima: escaneo del encargado |
-| Notificaciones | `expo-notifications` | próxima: recordatorio y avisos |
-| Mapa | `react-native-webview` (OpenStreetMap con Leaflet) | ✅ en la ficha del espacio |
-| Multimedia | `expo-video` (no `expo-av`) | próxima: recorrido de la cancha |
-| Archivos | `expo-file-system` (`File`, `Directory`, `Paths`) | próxima: video y fotos sin datos |
-| Galería | `expo-image-picker` | próxima: fotos del estado de la cancha |
-| Sensores | `expo-sensors` | a definir: el documento no dice para qué se usaría |
+| Navegación | `expo-router` | Toda la app |
+| Cámara | `expo-camera` (`CameraView`) | `gestion/escanear`: lee el QR en la puerta |
+| Galería | `expo-image-picker` | Ficha del espacio: el personal sube fotos del estado de la cancha |
+| Ubicación y mapa | `expo-location` + `react-native-maps` | Ficha (mapa chico) y `mapa` (todos los complejos, el más cercano, cómo llegar) |
+| Notificaciones | `expo-notifications` | Recordatorio 2 h antes (local) y avisos de suspensión y de turno liberado |
+| Persistencia y red | `expo-sqlite/kv-store`, `expo-network` | Catálogo, reservas con QR, agenda del día e ingresos pendientes guardados para usar sin señal |
+| Seguridad | `expo-secure-store` + `expo-local-authentication` | Token de sesión. Huella del encargado antes de escanear |
+| Sensores y háptica | `expo-haptics`, `expo-sensors` | Vibración distinta para un ingreso válido y uno inválido. Sacudir el teléfono para escanear el siguiente |
+| Archivos | `expo-file-system` (`File`, `Directory`, `Paths`) | Fotos y video de la cancha guardados a pedido, y fotos subidas |
+| Multimedia | `expo-video` (no `expo-av`) | Recorrido en video de la cancha |
+| Íconos | `@react-native-vector-icons/ionicons` | Toda la app (no `@expo/vector-icons`) |
+| QR | `react-native-qrcode-svg` + `react-native-svg` | Dibuja el código de ingreso en Mi reserva |
 
 ## 5. Decisiones provisorias de esta entrega
 
@@ -84,7 +91,16 @@ El documento pide avisar antes de decidir. Estas decisiones se tomaron sólo par
 2. **El inicio se usa sin cuenta**, como pide el documento. El ingreso se ofrece la primera vez que se abre la app, con la opción "Mirar sin cuenta", y después desde el botón "Entrar".
 3. **Ids de turno con el formato `tur-<espacio>-<AAAAMMDD>-<HH>`**, porque el del documento no incluye el mes (pregunta 3).
 4. **Complejos supuestos.** Fútbol 11, básquet, vóley y el gimnasio se ubicaron en el Polideportivo (pregunta 8).
-5. **El gimnasio quedó como deporte "Gimnasio" (multiuso).** Vóley usa el ícono `ellipse-outline` porque Ionicons no tiene una pelota de vóley.
+5. **El gimnasio quedó como deporte "Gimnasio" (multiuso).** Vóley usa el ícono `ellipse-outline` porque Ionicons no tiene una pelota de vóley. Al reservar el gimnasio se elige qué se va a jugar: básquet, vóley, fútbol u otro (pregunta 9).
+6. **Precedencia de la grilla:** mantenimiento > reservado > fijo > libre (pregunta 5). Un turno que ya empezó no se reserva (pregunta 11).
+7. **Cancelación tardía.** Pasadas las 4 horas, el botón pasa a "Avisar que no vamos". El turno se libera igual y se suma una cancelación tardía. Con 3 o más, la persona queda marcada: lo ve ella en su perfil y el encargado en la agenda (pregunta 7).
+8. **Bloqueo sobre reservas.** Las reservas que tapa un bloqueo se cancelan. No cuentan como tardías y a cada titular le llega un aviso (pregunta 5). "Mover un turno" no se modeló.
+9. **Máximo de tres** = confirmadas que todavía no terminaron. Las fijas no cuentan (pregunta 12).
+10. **Personas:** de 1 a la capacidad del espacio (pregunta 10).
+11. **Escaneo.** El encargado elige qué espacio controla. La reserva tiene que ser de hoy y de ese espacio. Sin señal, valida contra la agenda de hoy guardada y registra el ingreso cuando vuelve la conexión (pregunta 13). "No se presentó" se marca a mano, recién cuando el turno empezó (pregunta 14).
+12. **Roles.** Encargado y administrador pueden hacer todo lo de la sección 6 (pregunta 15).
+13. **Avisos de favoritos.** Sólo por cancelaciones y sólo para turnos de los próximos 7 días.
+14. **Fotos del estado de la cancha.** Las sube el personal desde la ficha y aparecen primeras en la galería (pregunta 17).
 
 ## 6. Huecos: preguntas para Nahuel
 
@@ -114,51 +130,49 @@ Numeradas para poder referirse a ellas.
 El documento pide decirlo:
 
 - **Avisos del servidor.** El recordatorio de 2 horas puede ser una notificación local, programada al reservar. Pero el aviso de suspensión por lluvia y el de turno liberado en un favorito tienen que mandarse **desde el servidor** con push. Esto depende de que la API de la cátedra guarde los tokens de push y los envíe. Además, desde el SDK 53, **el push no funciona en Expo Go en Android**: hace falta un development build (EAS).
-- **Mapa.** El documento pide "conectar API de Google Maps", pero esa API exige facturación. Se usó OpenStreetMap (gratis, sin clave) y un botón "Cómo llegar" que abre la app de mapas del teléfono. **A confirmar con Nahuel** si Google es requisito.
-- **Videos sin datos.** Once videos de 30 segundos pueden ocupar decenas de MB. Propuesta: descargarlos a pedido o sólo con wifi.
+- **Mapa.** `react-native-maps` anda en Expo Go sin configurar nada. Para el build de producción en Android hace falta una clave de Google Maps (`androidGoogleMapsApiKey` en el plugin), que exige una cuenta de Google Cloud con facturación habilitada.
+- **Videos sin datos.** Once videos de 30 segundos pueden ocupar decenas de MB. Se descargan a pedido, con el botón "Guardar en el teléfono" de cada ficha.
+- **Face ID** no anda en Expo Go. En iPhone hace falta un development build; en Android la huella anda en Expo Go.
 - **Avisos de favoritos.** "Avisar cuando se libera un turno de un favorito" puede generar muchas notificaciones. Conviene limitarlo a los próximos 7 días y a cancelaciones.
 
 ## 8. Datos de prueba
 
-Los mocks de **turnos y reservas se quitaron**: por ahora nadie tiene reservas, y la grilla de disponibilidad se arma con la API real o con datos nuevos. Quedan los espacios, deportes, usuarios y reservas fijas. Casos de los espacios:
+El servidor simulado (`src/mocks/servidor.ts`) guarda su estado en el teléfono, así lo que se reserva sobrevive a una recarga. Las fechas se siembran relativas al día en que se crean los datos. **Ajustes → Reiniciar datos de prueba** los vuelve a crear con fechas de hoy.
+
+Los casos feos que pide el documento:
 
 | Caso | Dónde |
 |---|---|
+| Día entero bloqueado por lluvia | Cancha 2, el próximo sábado (al menos 2 días adelante) |
+| Grilla completa sin turnos libres | Cancha 1, mañana |
 | Espacio sin video | esp-11 (el gimnasio sólo tiene fotos) |
-| Espacio sin fotos | esp-10 |
-| Espacio fuera de servicio | esp-06 |
-| Fija que ocupa todos los martes | fij-07, Cancha 2, 21 a 22 |
-| Fija dada de baja | fij-03 (no ocupa nada) |
-| Usuario con cancelaciones tardías | Lucía Godoy (4) |
+| Reserva cancelada | res-1171 de Emiliano, y res-1173 (suspendida por la lluvia, con su aviso) |
+| Fija que ocupa todos los martes | fij-07, Cancha 2, de 21 a 22 |
 | Error de red | `simularErrorDeRed: true` en `src/mocks/configuracion.ts` |
+
+Otros casos: un espacio sin fotos (esp-10), uno fuera de servicio (esp-06), una fija de dos horas (fij-08), una fija dada de baja (fij-03), un bloqueo de algunas horas (Vóley 1, mañana de 20 a 22), y Lucía Godoy con 4 cancelaciones tardías (queda marcada). Emiliano tiene un turno hoy en la Cancha 2 (o mañana si ya es de noche), uno en 3 días, uno jugado, uno cancelado y una ausencia.
 
 ## 9. Estado de esta entrega
 
-**Hecho:**
-- Proyecto Expo SDK 57 con TypeScript y Expo Router. Se bajó desde el SDK 58 porque el Expo Go de Play Store todavía es el del 57.
-- Tipos, mocks y capa de servicios.
-- Sesión con token seguro y copias locales.
-- Pantalla de ingreso.
-- Pantalla de inicio: catálogo con filtros por deporte y complejo, próximo turno con su código, aviso sin conexión, vista distinta para encargado y administrador.
-- Ficha mínima del espacio, para que la navegación funcione.
+**Hecho, sección por sección del documento:**
+
+1. **Los espacios.** Listado con foto, deporte, superficie y luz. Filtros por deporte y complejo. Ficha con fotos, características, precio, reglas y video. Mapa de todos los complejos, el más cercano y cómo llegar.
+2. **La disponibilidad.** Grilla de 8 a 24 de los próximos 7 días, con libre, ocupado, fijo y mantenimiento. Muestra la fija con el nombre del grupo y el motivo del bloqueo. Los turnos que ya empezaron no se reservan. Se mira sin cuenta.
+3. **Reservar y mis reservas.** Dos toques: el turno y el botón. Personas y deporte vienen cargados. Mis turnos separa próximas y pasadas. Se cancela sola hasta 4 horas antes; después queda como tardía. Hay un máximo de 3 activas.
+4. **El ingreso.** QR en Mi reserva, guardado para verlo sin señal. Huella del encargado, cámara y vibración distinta para válido e inválido. Mensajes claros para "no es de hoy", "es de otra cancha" y "ya se usó". También ingreso manual y "no se presentó".
+5. **Recordatorios y avisos.** Recordatorio local 2 horas antes. Aviso de suspensión al bloquear. Aviso de turno liberado en un favorito.
+6. **Lo que manejamos nosotros.** Bloqueos de turnos o días (un espacio o todo un complejo al aire libre), reservas fijas, agenda del día, escaneo y precios.
 
 **Verificado:**
-- `tsc --noEmit` y `expo lint` sin errores.
-- 18 comprobaciones de fechas y mocks.
+- `tsc --noEmit` y `expo lint` sin errores. `expo-doctor`: 21 de 21 chequeos.
+- 11 comprobaciones del cruce de la grilla: precedencia, fijas de varias horas y vencidas, lluvia, turnos pasados, ids con mes y el límite de 4 horas.
 - `expo export --platform android` compila.
 
-**Sin verificar:** todavía no se probó en un teléfono ni en un emulador.
+**Sin verificar en un teléfono:** la cámara, la huella, las notificaciones y el mapa necesitan probarse a mano en un dispositivo.
 
-**Diseño:**
-- Cascadia Code en toda la app.
-- Paleta de cancha de día y cancha de noche, que sigue el modo oscuro del teléfono. Contraste alto para leer a la intemperie y tocables de 48 px o más.
-- El ingreso es media cancha vista desde arriba. Los errores se muestran como tarjeta roja.
+## 10. Próximos pasos
 
-## 10. Próximas entregas propuestas
-
-1. **Grilla de disponibilidad.** El cruce de la sección 3, probado con los casos de lluvia, grilla llena y fija. Es la pantalla más importante y donde se decide si la app sirve.
-2. **Reservar y Mis reservas.** Incluye el QR guardado para verlo sin señal, cancelar y el máximo de tres.
-3. **Encargado.** Escaneo con `CameraView`, reingreso con huella, háptica distinta para válido e inválido, presente y ausente, agenda del día.
-4. **Administración.** Bloqueos con motivo, alta y edición de fijas, precios.
-5. **Ficha completa.** Fotos, video guardado, mapa y "Cómo llegar", favoritos.
-6. **Notificaciones** y build de producción con EAS.
+1. Respuestas de Nahuel a las preguntas de la sección 6, sobre todo la 4 (fijas sin persona) y la 6 (quién arma la grilla).
+2. Conectar la API de la cátedra: `USAR_MOCKS = false` y ajustar las rutas de los servicios.
+3. Push real para los avisos: development build (`eas build --profile development`) y que la API guarde los tokens.
+4. Clave de Google Maps y build de producción con EAS.

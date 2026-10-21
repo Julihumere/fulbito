@@ -3,7 +3,7 @@
  * deporte y complejo. Con sesión, suma el próximo turno con su código.
  */
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { router, useRootNavigationState } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,10 +16,11 @@ import { Marcador } from '@/componentes/Marcador';
 import { TarjetaEspacio } from '@/componentes/TarjetaEspacio';
 import { TarjetaProximoTurno } from '@/componentes/TarjetaProximoTurno';
 import { Texto } from '@/componentes/Texto';
+import { useAvisos } from '@/contexto/AvisosContexto';
+import { useReservas } from '@/contexto/ReservasContexto';
 import { useSesion } from '@/contexto/SesionContexto';
 import { useCatalogo } from '@/hooks/useCatalogo';
-import { useProximaReserva } from '@/hooks/useProximaReserva';
-import { ESPACIADO, RADIO, useTema } from '@/tema';
+import { ESPACIADO, RADIO, TOQUE_MINIMO, useTema } from '@/tema';
 import type { Espacio, Rol } from '@/tipos';
 import { primerNombre } from '@/utilidades/formato';
 
@@ -35,7 +36,7 @@ export default function Inicio() {
   const navegacion = useRootNavigationState();
   const { estado, usuario, primeraVez } = useSesion();
   const catalogo = useCatalogo();
-  const proximo = useProximaReserva(usuario?.id ?? null);
+  const proximo = useReservas();
   const red = useNetworkState();
 
   const [deporteId, setDeporteId] = useState<string | null>(null);
@@ -87,13 +88,19 @@ export default function Inicio() {
         )}
 
         {usuario && proximo.proxima && (
-          <TarjetaProximoTurno
-            reserva={proximo.proxima.reserva}
-            turno={proximo.proxima.turno}
-            espacio={catalogo.espacios.find((e) => e.id === proximo.proxima?.reserva.espacioId)}
-            activas={proximo.activas}
-            ahora={proximo.ahora}
-          />
+          <Pressable
+            onPress={() => router.push({ pathname: '/reserva/[id]', params: { id: proximo.proxima?.reserva.id ?? '' } })}
+            accessibilityRole="button"
+            accessibilityHint="Abre la reserva con el código QR"
+          >
+            <TarjetaProximoTurno
+              reserva={proximo.proxima.reserva}
+              turno={proximo.proxima.turno}
+              espacio={catalogo.espacios.find((e) => e.id === proximo.proxima?.reserva.espacioId)}
+              activas={proximo.activas}
+              ahora={proximo.ahora}
+            />
+          </Pressable>
         )}
         {usuario && !proximo.proxima && usuario.rol === 'jugador' && (
           <Texto variante="etiqueta" color={c.textoSuave}>
@@ -102,15 +109,20 @@ export default function Inicio() {
         )}
 
         {usuario && usuario.rol !== 'jugador' && (
-          <View style={[estilos.panel, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+          <Pressable
+            onPress={() => router.navigate('/gestion')}
+            accessibilityRole="button"
+            style={({ pressed }) => [estilos.panel, { backgroundColor: c.superficie, borderColor: c.borde }, pressed && { opacity: 0.85 }]}
+          >
             <Icono nombre="shield-checkmark-outline" color={c.cesped} tamano={22} />
             <View style={estilos.flex}>
               <Texto peso="seminegrita">Cuenta de {NOMBRE_ROL[usuario.rol].toLowerCase()}</Texto>
               <Texto variante="etiqueta" color={c.textoSuave}>
-                La agenda del día y el escaneo de códigos llegan en la próxima entrega.
+                Agenda del día, escaneo de ingresos, bloqueos, fijas y precios.
               </Texto>
             </View>
-          </View>
+            <Icono nombre="chevron-forward" color={c.textoSuave} tamano={18} />
+          </Pressable>
         )}
 
         {catalogo.espacios.length > 0 && (
@@ -206,6 +218,7 @@ export default function Inicio() {
             espacio={item}
             deporte={deporteDe(item)}
             onPress={() => router.push({ pathname: '/espacio/[id]', params: { id: item.id } })}
+            onTurnos={item.activo ? () => router.push({ pathname: '/disponibilidad/[id]', params: { id: item.id } }) : undefined}
           />
         </View>
       )}
@@ -221,6 +234,7 @@ export default function Inicio() {
 function Cabecera({ topInset }: { topInset: number }) {
   const { c } = useTema();
   const { usuario } = useSesion();
+  const { noLeidos } = useAvisos();
 
   return (
     <View style={[estilos.cabecera, { paddingTop: topInset + ESPACIADO.m, backgroundColor: c.cesped }]}>
@@ -228,9 +242,19 @@ function Cabecera({ topInset }: { topInset: number }) {
 
       <View style={estilos.filaCabecera}>
         <Marcador />
-        {!usuario && (
-          <Boton titulo="Entrar" variante="calSobreCesped" compacto icono="person-circle-outline" onPress={() => router.push('/login')} />
-        )}
+        <View style={estilos.accionesCabecera}>
+          <BotonCabecera icono="map-outline" etiqueta="Complejos en el mapa" onPress={() => router.push('/mapa')} />
+          {usuario ? (
+            <BotonCabecera
+              icono={noLeidos > 0 ? 'notifications' : 'notifications-outline'}
+              etiqueta={noLeidos > 0 ? `Avisos, ${noLeidos} sin leer` : 'Avisos'}
+              insignia={noLeidos}
+              onPress={() => router.push('/avisos')}
+            />
+          ) : (
+            <Boton titulo="Entrar" variante="calSobreCesped" compacto icono="person-circle-outline" onPress={() => router.push('/login')} />
+          )}
+        </View>
       </View>
 
       <View style={estilos.saludo}>
@@ -253,8 +277,51 @@ function Cabecera({ topInset }: { topInset: number }) {
   );
 }
 
+function BotonCabecera({
+  icono, etiqueta, insignia = 0, onPress,
+}: { icono: 'map-outline' | 'notifications' | 'notifications-outline'; etiqueta: string; insignia?: number; onPress: () => void }) {
+  const { c } = useTema();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={etiqueta}
+      style={({ pressed }) => [estilos.botonCabecera, { borderColor: c.cal }, pressed && { opacity: 0.8 }]}
+    >
+      <Icono nombre={icono} color={c.textoSobreCesped} tamano={22} />
+      {insignia > 0 && (
+        <View style={[estilos.insignia, { backgroundColor: c.acento }]}>
+          <Texto variante="chico" peso="negrita" color={c.textoSobreAcento}>
+            {insignia > 9 ? '9+' : insignia}
+          </Texto>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 const estilos = StyleSheet.create({
   flex: { flex: 1 },
+  accionesCabecera: { flexDirection: 'row', alignItems: 'center', gap: ESPACIADO.s },
+  botonCabecera: {
+    width: TOQUE_MINIMO,
+    height: TOQUE_MINIMO,
+    borderRadius: RADIO.control,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insignia: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cabecera: { paddingHorizontal: ESPACIADO.l, paddingBottom: ESPACIADO.xxl + ESPACIADO.s, overflow: 'hidden' },
   filaCabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   saludo: { marginTop: ESPACIADO.xl, gap: ESPACIADO.xs },

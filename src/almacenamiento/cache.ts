@@ -9,6 +9,11 @@ export const CLAVES = {
   deportes: 'cache.deportes',
   usuario: 'cache.usuario',
   misReservas: 'cache.misReservas',
+  agenda: 'cache.agenda',
+  ingresosPendientes: 'cache.ingresosPendientes',
+  espacioEscaneo: 'app.espacioEscaneo',
+  recordatorios: 'notif.recordatorios',
+  avisosMostrados: 'notif.avisosMostrados',
   bienvenidaVista: 'app.bienvenidaVista',
 } as const;
 

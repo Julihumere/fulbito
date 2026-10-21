@@ -22,6 +22,22 @@ export const usuariosMock: Usuario[] = [
     telefono: '3455-418833', rol: 'jugador', espaciosFavoritos: ['esp-09', 'esp-10'],
     cancelacionesTardias: 4, ausencias: 2,
   },
+  // Otros jugadores: llenan la grilla completa de la Cancha 1 (caso "sin turnos libres").
+  {
+    id: 'usr-401', nombre: 'Gonzalo Acosta', email: 'gonzalo@mail.com',
+    telefono: '3455-402233', rol: 'jugador', espaciosFavoritos: ['esp-01'],
+    cancelacionesTardias: 0, ausencias: 1,
+  },
+  {
+    id: 'usr-402', nombre: 'Martina Silva', email: 'martina@mail.com',
+    telefono: '3455-403344', rol: 'jugador', espaciosFavoritos: [],
+    cancelacionesTardias: 0, ausencias: 0,
+  },
+  {
+    id: 'usr-403', nombre: 'Rodrigo Paz', email: 'rodrigo@mail.com',
+    telefono: '3455-404455', rol: 'jugador', espaciosFavoritos: ['esp-02'],
+    cancelacionesTardias: 2, ausencias: 0,
+  },
 ];
 
 /**

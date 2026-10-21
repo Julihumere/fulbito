@@ -44,6 +44,41 @@
       "expo-status-bar",
       "expo-video",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "La cámara se usa para escanear el código QR de las reservas en la puerta de la cancha.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Tu ubicación se usa sólo para mostrarte qué complejo te queda más cerca."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La galería se usa para subir fotos del estado de una cancha.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Face ID se usa para confirmar que sos el encargado antes de escanear ingresos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2E7D32"
+        }
+      ],
+      "react-native-maps",
+      [
         "expo-navigation-bar",
         {
           "enforceContrast": false

@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { aplicarApariencia, leerApariencia } from '@/almacenamiento/apariencia';
+import { AvisosProvider } from '@/contexto/AvisosContexto';
+import { ReservasProvider } from '@/contexto/ReservasContexto';
 import { SesionProvider, useSesion } from '@/contexto/SesionContexto';
+import { configurarNotificaciones, limpiarUltimaRespuesta, useUltimaRespuesta } from '@/notificaciones';
 import { ARCHIVOS_FUENTES, FUENTES, useTema } from '@/tema';
 
 SplashScreen.preventAutoHideAsync();
+configurarNotificaciones();
 
 // La apariencia elegida se aplica antes del primer dibujo, así no parpadea el otro modo.
 aplicarApariencia(leerApariencia());
@@ -23,7 +27,11 @@ export default function LayoutRaiz() {
   return (
     <SafeAreaProvider>
       <SesionProvider>
-        <Navegacion />
+        <ReservasProvider>
+          <AvisosProvider>
+            <Navegacion />
+          </AvisosProvider>
+        </ReservasProvider>
       </SesionProvider>
     </SafeAreaProvider>
   );
@@ -42,6 +50,16 @@ function Navegacion() {
   useEffect(() => {
     if (estado !== 'cargando') SplashScreen.hideAsync();
   }, [estado]);
+
+  // Tocar una notificación abre su pantalla (también si la app estaba cerrada).
+  const ultimaRespuesta = useUltimaRespuesta();
+  useEffect(() => {
+    const url = ultimaRespuesta?.notification.request.content.data?.url;
+    if (estado !== 'cargando' && typeof url === 'string') {
+      router.push(url as Parameters<typeof router.push>[0]);
+      limpiarUltimaRespuesta();
+    }
+  }, [ultimaRespuesta, estado]);
 
   if (estado === 'cargando') return null;
 
@@ -67,6 +85,16 @@ function Navegacion() {
         />
         <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
         <Stack.Screen name="espacio/[id]" options={{ title: '' }} />
+        <Stack.Screen name="disponibilidad/[id]" options={{ title: 'Turnos' }} />
+        <Stack.Screen name="reserva/[id]" options={{ title: 'Mi reserva' }} />
+        <Stack.Screen name="mapa" options={{ title: 'Complejos' }} />
+        <Stack.Screen name="avisos" options={{ title: 'Avisos' }} />
+        <Stack.Screen name="gestion/agenda" options={{ title: 'Agenda del día' }} />
+        <Stack.Screen name="gestion/escanear" options={{ title: 'Escanear ingreso' }} />
+        <Stack.Screen name="gestion/bloqueos" options={{ title: 'Bloqueos' }} />
+        <Stack.Screen name="gestion/fijas" options={{ title: 'Reservas fijas' }} />
+        <Stack.Screen name="gestion/fija" options={{ title: 'Reserva fija' }} />
+        <Stack.Screen name="gestion/precios" options={{ title: 'Precios' }} />
       </Stack>
     </>
   );
