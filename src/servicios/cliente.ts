@@ -1,7 +1,7 @@
 /**
  * Único punto por donde la app habla con "el servidor".
- * Hoy responde con los mocks; cuando la cátedra publique la API se pone
- * USAR_MOCKS = false y los servicios pasan a usar `pedir()` con fetch.
+ * Por defecto responde con los mocks; con EXPO_PUBLIC_USAR_MOCKS=false los
+ * servicios pasan a usar `pedir()` con fetch contra EXPO_PUBLIC_API_URL.
  * Las pantallas no se enteran del cambio.
  */
 import * as Network from 'expo-network';
@@ -15,7 +15,7 @@ import {
   type RespuestaExito,
 } from '@/tipos';
 
-export const USAR_MOCKS = true;
+export const USAR_MOCKS = process.env.EXPO_PUBLIC_USAR_MOCKS !== 'false';
 export const URL_API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.villaguay.gob.ar';
 
 export class ErrorApi extends Error {

@@ -1,6 +1,6 @@
 /**
  * Inicio. Se puede usar sin cuenta: muestra los once espacios con filtros por
- * deporte y complejo. Con sesión, suma el próximo turno con su código.
+ * deporte, complejo, luz, techado y nombre. Con sesión, suma el próximo turno con su código.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -11,6 +11,7 @@ import { guardarFavoritos, leerFavoritos } from '@/almacenamiento/favoritos';
 import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
 import { CespedFranjas, CirculoCal } from '@/componentes/Cancha';
+import { CampoTexto } from '@/componentes/CampoTexto';
 import { Chip } from '@/componentes/Chip';
 import { Icono, nombreIconoSeguro } from '@/componentes/Icono';
 import { Marcador } from '@/componentes/Marcador';
@@ -32,6 +33,9 @@ const NOMBRE_ROL: Record<Rol, string> = {
   administrador: 'Administrador',
 };
 
+const normalizar = (texto: string) =>
+  texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
 export default function Inicio() {
   const { c } = useTema();
   const insets = useSafeAreaInsets();
@@ -47,6 +51,9 @@ export default function Inicio() {
   const [favoritosInvitado, setFavoritosInvitado] = useState<string[]>([]);
   const [favoritosCargados, setFavoritosCargados] = useState(false);
   const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const [conLuz, setConLuz] = useState(false);
+  const [soloTechados, setSoloTechados] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
   const [errorFavorito, setErrorFavorito] = useState<string | null>(null);
   const favoritos = usuario?.espaciosFavoritos ?? favoritosInvitado;
 
@@ -79,16 +86,27 @@ export default function Inicio() {
     () => catalogo.deportes.filter((d) => catalogo.espacios.some((e) => e.deporteId === d.id)),
     [catalogo.deportes, catalogo.espacios],
   );
-  const visibles = useMemo(
-    () =>
-      catalogo.espacios
+  const visibles = useMemo(() => {
+    const texto = normalizar(busqueda);
+    return catalogo.espacios
       .filter((e) =>
         (!deporteId || e.deporteId === deporteId) &&
         (!complejo || e.complejo === complejo) &&
-        (!soloFavoritos || favoritos.includes(e.id)))
-        .sort((a, b) => Number(b.activo) - Number(a.activo)),
-    [catalogo.espacios, deporteId, complejo, soloFavoritos, favoritos],
-  );
+        (!soloFavoritos || favoritos.includes(e.id)) &&
+        (!conLuz || e.iluminacion) &&
+        (!soloTechados || e.techado) &&
+        (!texto || normalizar(`${e.nombre} ${e.complejo}`).includes(texto)))
+      .sort((a, b) => Number(b.activo) - Number(a.activo));
+  }, [catalogo.espacios, deporteId, complejo, soloFavoritos, favoritos, conLuz, soloTechados, busqueda]);
+
+  function limpiarFiltros() {
+    setDeporteId(null);
+    setComplejo(null);
+    setSoloFavoritos(false);
+    setConLuz(false);
+    setSoloTechados(false);
+    setBusqueda('');
+  }
 
   const sinConexion = red.isConnected === false || red.isInternetReachable === false;
   const deporteDe = (e: Espacio) => catalogo.deportes.find((d) => d.id === e.deporteId);
@@ -173,7 +191,18 @@ export default function Inicio() {
 
         {catalogo.espacios.length > 0 && (
           <View style={estilos.filtros}>
-            <Texto variante="etiqueta" peso="seminegrita">
+            <CampoTexto
+              etiqueta="Buscar por nombre"
+              icono="search-outline"
+              placeholder="Cancha 2, Polideportivo…"
+              value={busqueda}
+              onChangeText={setBusqueda}
+              autoCorrect={false}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+
+            <Texto variante="etiqueta" peso="seminegrita" style={estilos.separado}>
               Deporte
             </Texto>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
@@ -204,6 +233,24 @@ export default function Inicio() {
                   onPress={() => setComplejo(complejo === nombre ? null : nombre)}
                 />
               ))}
+            </ScrollView>
+
+            <Texto variante="etiqueta" peso="seminegrita" style={estilos.separado}>
+              Características
+            </Texto>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+              <Chip
+                texto="Con luz"
+                icono={conLuz ? 'bulb' : 'bulb-outline'}
+                activo={conLuz}
+                onPress={() => setConLuz((actual) => !actual)}
+              />
+              <Chip
+                texto="Techado"
+                icono="umbrella-outline"
+                activo={soloTechados}
+                onPress={() => setSoloTechados((actual) => !actual)}
+              />
             </ScrollView>
 
             <View style={estilos.filaResultados}>
@@ -250,11 +297,7 @@ export default function Inicio() {
           titulo="Ver todos"
           variante="secundario"
           compacto
-          onPress={() => {
-            setDeporteId(null);
-            setComplejo(null);
-            setSoloFavoritos(false);
-          }}
+          onPress={limpiarFiltros}
         />
       </View>
     );

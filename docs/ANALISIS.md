@@ -62,7 +62,7 @@ src/
 Reglas que se cumplen desde el día uno:
 
 - **Ninguna pantalla importa un mock.** Todo pasa por `src/servicios/`. Las funciones de servicio son `async` y devuelven lo mismo que la API, con la forma `{ datos, meta }` / `{ error: { codigo, mensaje } }`.
-- **Para conectar la API real** se pone `USAR_MOCKS = false` en `src/servicios/cliente.ts` y se configura `EXPO_PUBLIC_API_URL`. Las rutas de `pedir()` son provisorias hasta conocer la API.
+- **Para conectar la API real** se definen `EXPO_PUBLIC_USAR_MOCKS=false` y `EXPO_PUBLIC_API_URL` (ver `src/servicios/cliente.ts`). Las rutas de `pedir()` son provisorias hasta conocer la API.
 - **El token** viaja en `Authorization: Bearer <token>` y se guarda sólo en `expo-secure-store`.
 - **Sin señal:** el perfil, el catálogo y las reservas del usuario se guardan en `expo-sqlite/kv-store`. La app arranca con lo guardado y después actualiza. Esto cubre el pedido de que el QR se vea en la puerta de la cancha, donde la señal es mala.
 
@@ -173,6 +173,6 @@ Otros casos: un espacio sin fotos (esp-10), uno fuera de servicio (esp-06), una 
 ## 10. Próximos pasos
 
 1. Respuestas de Nahuel a las preguntas de la sección 6, sobre todo la 4 (fijas sin persona) y la 6 (quién arma la grilla).
-2. Conectar la API de la cátedra: `USAR_MOCKS = false` y ajustar las rutas de los servicios.
+2. Conectar la API de la cátedra: `EXPO_PUBLIC_USAR_MOCKS=false` y ajustar las rutas de los servicios.
 3. Push real para los avisos: development build (`eas build --profile development`) y que la API guarde los tokens.
 4. Clave de Google Maps y build de producción con EAS.

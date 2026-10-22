@@ -61,4 +61,4 @@ npx expo lint
 
 Ver `docs/ANALISIS.md`, que tiene la arquitectura, las decisiones provisorias, las preguntas abiertas para la Dirección de Deportes y el plan de entregas.
 
-Regla principal: **ninguna pantalla importa mocks**. Todo pasa por `src/servicios/`. Para conectar la API de la cátedra se pone `USAR_MOCKS = false` en `src/servicios/cliente.ts` y se define `EXPO_PUBLIC_API_URL`.
+Regla principal: **ninguna pantalla importa mocks**. Todo pasa por `src/servicios/`. Para conectar la API de la cátedra se definen `EXPO_PUBLIC_USAR_MOCKS=false` y `EXPO_PUBLIC_API_URL` (por ejemplo en un `.env.local`, que git ignora, o en el perfil de `eas.json`). Sin esas variables la app usa los datos inventados. Expo lee las variables al compilar, así que hay que reiniciar con `npx expo start -c`.
