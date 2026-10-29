@@ -1,6 +1,6 @@
 # Fulbito! — Análisis del pedido
 
-Análisis del documento *Reservas Deportivas — Pedido de aplicación móvil* (Dirección de Deportes de Villaguay, Nahuel Ojeda) y estado de la entrega: todas las funciones del pedido andando contra datos inventados.
+Análisis del documento *Reservas Deportivas — Pedido de aplicación móvil* (Dirección de Deportes de Villaguay, Nahuel Ojeda) y estado de la entrega: todas las funciones del pedido andando contra la API de la cátedra y contra datos inventados.
 
 ## 1. El problema, en una frase
 
@@ -164,7 +164,8 @@ Otros casos: un espacio sin fotos (esp-10), uno fuera de servicio (esp-06), una 
 6. **Lo que manejamos nosotros.** Bloqueos de turnos o días (un espacio o todo un complejo al aire libre), reservas fijas, agenda del día, escaneo y precios.
 
 **Verificado:**
-- `tsc --noEmit` y `expo lint` sin errores. `expo-doctor`: 21 de 21 chequeos.
+- API real conectada: registro, login, catálogo, grilla, reservas, cancelación, favoritos, agenda, ingresos, bloqueos, fijas, precios y archivos.
+- `tsc --noEmit` y `expo lint` sin errores.
 - 11 comprobaciones del cruce de la grilla: precedencia, fijas de varias horas y vencidas, lluvia, turnos pasados, ids con mes y el límite de 4 horas.
 - `expo export --platform android` compila.
 
@@ -173,6 +174,6 @@ Otros casos: un espacio sin fotos (esp-10), uno fuera de servicio (esp-06), una 
 ## 10. Próximos pasos
 
 1. Respuestas de Nahuel a las preguntas de la sección 6, sobre todo la 4 (fijas sin persona) y la 6 (quién arma la grilla).
-2. Conectar la API de la cátedra: `EXPO_PUBLIC_USAR_MOCKS=false` y ajustar las rutas de los servicios.
-3. Push real para los avisos: development build (`eas build --profile development`) y que la API guarde los tokens.
-4. Clave de Google Maps y build de producción con EAS.
+2. Push real para los avisos: development build (`eas build --profile development`) y completar `/dispositivos` y el envío en la API.
+3. Clave de Google Maps y build de producción con EAS.
+4. Probar cámara, huella, notificaciones y mapa en un teléfono.
