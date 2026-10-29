@@ -11,6 +11,7 @@
  * Cada notificación lleva en `data.url` la pantalla que abre al tocarla.
  */
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { CLAVES, guardarEnCache, leerDeCache } from '@/almacenamiento/cache';
 import type { Espacio, Notificacion, Reserva, Turno } from '@/tipos';
 import { horaCorta, instante } from '@/utilidades/fechas';
@@ -23,24 +24,51 @@ type ModuloNotificaciones = typeof import('expo-notifications');
  * no siempre lo trae: el import tira un error y tumba toda la app. Se carga acá
  * adentro y, si falla, las notificaciones quedan apagadas y el resto anda igual.
  */
-const Notifications: ModuloNotificaciones | null = (() => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- carga a propósito dentro del try
-    return require('expo-notifications') as ModuloNotificaciones;
-  } catch {
-    return null;
-  }
-})();
+const Notifications: ModuloNotificaciones | null = Platform.OS === 'web'
+  ? null
+  : (() => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- carga a propósito dentro del try
+        return require('expo-notifications') as ModuloNotificaciones;
+      } catch {
+        return null;
+      }
+    })();
 
 const CANAL_RECORDATORIOS = 'recordatorios';
 const CANAL_AVISOS = 'avisos';
 
 /** Última notificación tocada (para abrir su pantalla). Siempre `null` si no hay módulo. */
-export const useUltimaRespuesta: () => ReturnType<ModuloNotificaciones['useLastNotificationResponse']> =
-  Notifications?.useLastNotificationResponse ?? (() => null);
+export function useUltimaRespuesta(): ReturnType<ModuloNotificaciones['useLastNotificationResponse']> {
+  if (Platform.OS === 'web' || !Notifications) return null;
+  // Platform.OS no cambia en tiempo de ejecución; el orden de hooks es estable.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return Notifications.useLastNotificationResponse();
+}
 
 export function limpiarUltimaRespuesta(): void {
   Notifications?.clearLastNotificationResponse();
+}
+
+/** Token de Expo del teléfono. null en web o si Expo Go no puede obtenerlo. */
+export let tokenPushActual: string | null = null;
+
+export async function obtenerTokenPush(): Promise<string | null> {
+  if (Platform.OS === 'web' || !Notifications) return null;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+  if (!projectId) return null;
+  try {
+    const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
+    tokenPushActual = data;
+    return data;
+  } catch {
+    // En Expo Go Android el push remoto no está disponible; se sigue sin token.
+    return null;
+  }
+}
+
+export function olvidarTokenPush(): void {
+  tokenPushActual = null;
 }
 
 /** Se llama una vez al arrancar la app. */

@@ -177,6 +177,14 @@ export default function PantallaIngreso() {
               {errores.general ? <TarjetaRoja mensaje={errores.general} /> : null}
 
               <Boton titulo="Entrar" icono="log-in-outline" onPress={entrar} cargando={enviando} />
+              <Boton
+                titulo="Crear cuenta"
+                variante="secundario"
+                compacto
+                icono="person-add-outline"
+                onPress={() => router.push('/registro')}
+                deshabilitado={enviando}
+              />
             </View>
           </View>
 

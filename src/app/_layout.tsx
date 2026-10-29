@@ -92,6 +92,7 @@ function Navegacion() {
           name="login"
           options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
         />
+        <Stack.Screen name="registro" options={{ title: 'Crear cuenta' }} />
         <Stack.Screen name="ajustes" options={{ title: 'Ajustes' }} />
         <Stack.Screen name="espacio/[id]" options={{ title: '' }} />
         <Stack.Screen name="disponibilidad/[id]" options={{ title: 'Turnos' }} />
