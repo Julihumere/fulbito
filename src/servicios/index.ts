@@ -1,4 +1,5 @@
 export * as auth from './auth';
+export * as dispositivos from './dispositivos';
 export * as espacios from './espacios';
 export * as gestion from './gestion';
 export * as reservas from './reservas';

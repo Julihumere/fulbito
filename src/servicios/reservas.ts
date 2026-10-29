@@ -1,52 +1,118 @@
 /**
  * Capa de servicios de reservas y turnos (src/servicios/reservas.ts,
- * como pide el documento). Hoy devuelve mocks; mañana hace fetch.
+ * como pide el documento). Con EXPO_PUBLIC_USAR_MOCKS=false habla con la API.
  */
 import * as servidor from '@/mocks/servidor';
 import type { CancelacionRegistrada, NuevaReserva, Reserva, ReservaFija, Turno } from '@/tipos';
-import { pedir, simular, USAR_MOCKS } from './cliente';
+import { finDeTurno, leerIdTurno } from '@/utilidades/grilla';
+import { ErrorApi, pedir, pedirLista, simular, USAR_MOCKS } from './cliente';
+import { obtenerEspacio } from './espacios';
 
-/** Los 16 turnos de un espacio en un día, ya cruzados con fijas y bloqueos (pregunta 6). */
+/** Los 16 turnos de un espacio en un día, ya cruzados por la API. */
 export async function obtenerGrilla(espacioId: string, fecha: string): Promise<Turno[]> {
-  const r = USAR_MOCKS
-    ? await simular(() => servidor.grilla(espacioId, fecha))
-    : await pedir<Turno[]>(`/espacios/${encodeURIComponent(espacioId)}/turnos?fecha=${fecha}`);
-  return r.datos;
+  const datos = USAR_MOCKS
+    ? (await simular(() => servidor.grilla(espacioId, fecha))).datos
+    : (await pedir<Turno[]>(
+        `/espacios/${encodeURIComponent(espacioId)}/turnos?fecha=${encodeURIComponent(fecha)}`,
+      )).datos;
+  return datos;
 }
 
-/** Fijas de un espacio, para mostrar a nombre de quién está cada turno fijo. */
+/** GET /fijas — sólo encargado/administrador. */
 export async function listarFijas(espacioId: string | null = null): Promise<ReservaFija[]> {
-  const consulta = espacioId ? `?espacioId=${encodeURIComponent(espacioId)}` : '';
-  const r = USAR_MOCKS ? await simular(() => servidor.fijas(espacioId)) : await pedir<ReservaFija[]>(`/reservas-fijas${consulta}`);
-  return r.datos;
+  const datos = USAR_MOCKS
+    ? (await simular(() => servidor.fijas(espacioId))).datos
+    : await pedirLista<ReservaFija>('/fijas', espacioId ? { espacioId } : {});
+  return datos;
 }
 
-/** Reservas del usuario de la sesión (todas: próximas, pasadas y canceladas). */
+/** La API separa próximas y pasadas; la app las vuelve a separar por fecha. */
 export async function listarMisReservas(): Promise<Reserva[]> {
-  const r = USAR_MOCKS ? await simular((token) => servidor.misReservas(token)) : await pedir<Reserva[]>('/reservas/mias');
+  if (USAR_MOCKS) {
+    return (await simular((token) => servidor.misReservas(token))).datos;
+  }
+
+  const [proximas, pasadas] = await Promise.all([
+    pedirLista<Reserva>('/yo/reservas', { cuando: 'proximas' }),
+    pedirLista<Reserva>('/yo/reservas', { cuando: 'pasadas' }),
+  ]);
+  const porId = new Map<string, Reserva>();
+  [...proximas, ...pasadas].forEach((r) => porId.set(r.id, r));
+  return [...porId.values()];
+}
+
+/** GET /reservas/:id — el dueño o el personal. */
+export async function obtenerReserva(id: string): Promise<Reserva> {
+  const r = USAR_MOCKS
+    ? await simular((token) => servidor.obtenerReserva(token, id))
+    : await pedir<Reserva>(`/reservas/${encodeURIComponent(id)}`);
   return r.datos;
 }
 
 /**
- * La Reserva del documento no trae fecha ni hora: hay que pedir su Turno.
- * Ver "Huecos" en el análisis.
+ * La Reserva no trae fecha ni hora. Se obtiene el turno a partir de su id:
+ * `tur-esp-02-20260919-19` (API) o `tur-02-20260919-19` (mock viejo).
  */
 export async function obtenerTurno(id: string): Promise<Turno> {
-  const r = USAR_MOCKS ? await simular(() => servidor.turno(id)) : await pedir<Turno>(`/turnos/${encodeURIComponent(id)}`);
-  return r.datos;
+  if (USAR_MOCKS) {
+    const r = await simular(() => servidor.turno(id));
+    return r.datos;
+  }
+
+  const partes = leerIdTurno(id);
+  if (!partes) throw new Error('El id del turno no tiene la forma esperada.');
+
+  try {
+    const turnos = await obtenerGrilla(partes.espacioId, partes.fecha);
+    const turno = turnos.find((t) => t.id === id);
+    if (turno) return turno;
+  } catch (e) {
+    // La grilla sólo cubre hoy + 6. Para una reserva vieja se reconstruye
+    // con el id y el precio actual del espacio.
+    const codigo = e instanceof ErrorApi ? e.codigo : null;
+    if (codigo !== 'FECHA_FUERA_DE_RANGO' && codigo !== 'TURNO_NO_ENCONTRADO') throw e;
+  }
+
+  const espacio = await obtenerEspacio(partes.espacioId);
+  return {
+    id,
+    espacioId: partes.espacioId,
+    fecha: partes.fecha,
+    inicio: partes.inicio,
+    fin: finDeTurno(partes.inicio),
+    estado: 'reservado',
+    reservaId: null,
+    motivoBloqueo: null,
+    precio: espacio.precioPorHora,
+  };
 }
 
+/** POST /reservas — la API sólo acepta turnoId y cantidadPersonas. */
 export async function reservar(pedido: NuevaReserva): Promise<Reserva> {
+  const cuerpo = {
+    turnoId: pedido.turnoId,
+    cantidadPersonas: pedido.cantidadPersonas,
+  };
   const r = USAR_MOCKS
     ? await simular((token) => servidor.crearReserva(token, pedido))
-    : await pedir<Reserva>('/reservas', { metodo: 'POST', cuerpo: pedido });
+    : await pedir<Reserva>('/reservas', { metodo: 'POST', cuerpo });
   return r.datos;
 }
 
-/** Hasta 4 horas antes se cancela sola; después queda anotada como tardía. */
+/** POST /reservas/:id/cancelacion. La API no permite cancelar tarde a un jugador. */
 export async function cancelar(id: string): Promise<CancelacionRegistrada> {
-  const r = USAR_MOCKS
-    ? await simular((token) => servidor.cancelarReserva(token, id))
-    : await pedir<CancelacionRegistrada>(`/reservas/${encodeURIComponent(id)}/cancelar`, { metodo: 'POST' });
-  return r.datos;
+  if (USAR_MOCKS) {
+    return (await simular((token) => servidor.cancelarReserva(token, id))).datos;
+  }
+
+  const antes = await obtenerReserva(id);
+  const tardia = Date.parse(antes.cancelableHasta) <= Date.now();
+  const r = await pedir<Reserva>(`/reservas/${encodeURIComponent(id)}/cancelacion`, { metodo: 'POST' });
+  return { reserva: r.datos, tardia };
+}
+
+/** GET /reservas?fecha= — sólo personal; alimenta la agenda. */
+export async function listarReservasDelDia(fecha: string): Promise<Reserva[]> {
+  if (USAR_MOCKS) return [];
+  return pedirLista<Reserva>('/reservas', { fecha });
 }

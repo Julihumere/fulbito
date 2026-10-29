@@ -22,6 +22,7 @@ import type {
   BloqueoCreado,
   CancelacionRegistrada,
   CredencialesIngreso,
+  DatosRegistro,
   DatosReservaFija,
   Deporte,
   EntradaAgenda,
@@ -243,9 +244,42 @@ export function ingresar(credenciales: CredencialesIngreso): R<SesionIniciada> {
   return exito({ token: tokenDe(usuario.id), usuario });
 }
 
+export function registrar(datos: DatosRegistro): R<SesionIniciada> {
+  const email = datos.email.trim().toLowerCase();
+  if (db().usuarios.some((u) => u.email.toLowerCase() === email)) {
+    return fallo('EMAIL_YA_REGISTRADO', 'Ya hay una cuenta con ese email.');
+  }
+  const usuario: Usuario = {
+    id: `usr-${Date.now().toString(36)}`,
+    nombre: datos.nombre.trim(),
+    email,
+    telefono: datos.telefono.trim(),
+    rol: 'jugador',
+    espaciosFavoritos: [],
+    cancelacionesTardias: 0,
+    ausencias: 0,
+  };
+  db().usuarios.push(usuario);
+  credencialesMock.push({ email, contrasena: datos.contrasena, usuarioId: usuario.id });
+  guardar();
+  return exito({ token: tokenDe(usuario.id), usuario });
+}
+
 export function perfil(token: string | null): R<Usuario> {
   const u = usuarioDe(token);
   return u ? exito(u) : fallo('NO_AUTORIZADO', 'Tu sesión venció. Entrá de nuevo.');
+}
+
+export function actualizarPerfil(
+  token: string | null,
+  datos: { nombre?: string; telefono?: string },
+): R<Usuario> {
+  const u = usuarioDe(token);
+  if (!u) return noAutorizado();
+  if (datos.nombre !== undefined) u.nombre = datos.nombre.trim();
+  if (datos.telefono !== undefined) u.telefono = datos.telefono.trim();
+  guardar();
+  return exito(u);
 }
 
 export function alternarFavorito(token: string | null, espacioId: string): R<Usuario> {
@@ -312,6 +346,15 @@ export function misReservas(token: string | null): R<Reserva[]> {
   const u = usuarioDe(token);
   if (!u) return fallo('NO_AUTORIZADO', 'Entrá con tu cuenta para ver tus reservas.');
   return lista(db().reservas.filter((r) => r.usuarioId === u.id));
+}
+
+export function obtenerReserva(token: string | null, id: string): R<Reserva> {
+  const u = usuarioDe(token);
+  if (!u) return noAutorizado();
+  const r = db().reservas.find((x) => x.id === id);
+  if (!r) return fallo('NO_ENCONTRADO', 'No encontramos esa reserva.');
+  if (r.usuarioId !== u.id && !esPersonal(u)) return sinPermiso();
+  return exito(r);
 }
 
 export function crearReserva(token: string | null, pedido: NuevaReserva): R<Reserva> {
@@ -537,6 +580,15 @@ export function editarFija(token: string | null, id: string, datos: DatosReserva
   const error = validarFija(datos, id);
   if (error) return error;
   Object.assign(f, datos, { titular: datos.titular.trim() });
+  guardar();
+  return exito(f);
+}
+
+export function darDeBajaFija(token: string | null, id: string): R<ReservaFija> {
+  if (!esPersonal(usuarioDe(token))) return sinPermiso();
+  const f = db().fijas.find((x) => x.id === id);
+  if (!f) return fallo('NO_ENCONTRADO', 'Esa reserva fija no existe.');
+  f.activa = false;
   guardar();
   return exito(f);
 }

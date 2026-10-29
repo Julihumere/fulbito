@@ -34,11 +34,15 @@ export function idTurno(espacioId: string, fecha: string, inicio: string): strin
   return `tur-${espacioId.replace(/^esp-/, '')}-${fecha.replaceAll('-', '')}-${inicio.slice(0, 2)}`;
 }
 
-/** Desarma un id de turno. null si no tiene la forma esperada. */
+/**
+ * Desarma un id de turno. Acepta el formato de la API
+ * (`tur-esp-02-20260919-19`) y el viejo del mock (`tur-02-20260919-19`).
+ */
 export function leerIdTurno(id: string): { espacioId: string; fecha: string; inicio: string } | null {
   const m = /^tur-(.+)-(\d{4})(\d{2})(\d{2})-(\d{2})$/.exec(id);
   if (!m) return null;
-  return { espacioId: `esp-${m[1]}`, fecha: `${m[2]}-${m[3]}-${m[4]}`, inicio: `${m[5]}:00` };
+  const espacioId = m[1].startsWith('esp-') ? m[1] : `esp-${m[1]}`;
+  return { espacioId, fecha: `${m[2]}-${m[3]}-${m[4]}`, inicio: `${m[5]}:00` };
 }
 
 /** La fija ocupa ese turno: activa, mismo día de la semana, dentro de su vigencia y de su horario. */

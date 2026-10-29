@@ -4,11 +4,13 @@
  * servicios pasan a usar `pedir()` con fetch contra EXPO_PUBLIC_API_URL.
  * Las pantallas no se enteran del cambio.
  */
+import { Platform } from 'react-native';
 import * as Network from 'expo-network';
 import { leerToken } from '@/almacenamiento/token';
 import { configuracionMocks } from '@/mocks/configuracion';
 import {
   esRespuestaError,
+  type ArchivoSubido,
   type CodigoError,
   type Meta,
   type RespuestaApi,
@@ -16,7 +18,7 @@ import {
 } from '@/tipos';
 
 export const USAR_MOCKS = process.env.EXPO_PUBLIC_USAR_MOCKS !== 'false';
-export const URL_API = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.villaguay.gob.ar';
+export const URL_API = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
 export class ErrorApi extends Error {
   constructor(
@@ -51,36 +53,150 @@ async function hayConexion(): Promise<boolean> {
 
 type Metodo = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+async function construirHeaders(conJson: boolean): Promise<Record<string, string>> {
+  const token = await leerToken();
+  return {
+    Accept: 'application/json',
+    ...(conJson ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function leerJson(respuesta: Response): Promise<unknown> {
+  const texto = await respuesta.text();
+  if (!texto) return null;
+  try {
+    return JSON.parse(texto) as unknown;
+  } catch {
+    throw new ErrorApi('ERROR_DESCONOCIDO', `El servidor respondió algo inesperado (${respuesta.status}).`);
+  }
+}
+
+function errorDeRespuesta(json: unknown, status: number): ErrorApi {
+  const respuesta = json as RespuestaApi<unknown> | null;
+  if (respuesta && typeof respuesta === 'object' && esRespuestaError(respuesta)) {
+    return new ErrorApi(respuesta.error.codigo, respuesta.error.mensaje);
+  }
+  return new ErrorApi('ERROR_DESCONOCIDO', `El servidor respondió con un error (${status}).`);
+}
+
 export async function pedir<T>(
   ruta: string,
   opciones: { metodo?: Metodo; cuerpo?: unknown } = {},
 ): Promise<RespuestaExito<T>> {
   if (!(await hayConexion())) throw errorSinConexion();
 
-  const token = await leerToken();
   let respuesta: Response;
   try {
     respuesta = await fetch(`${URL_API}${ruta}`, {
       method: opciones.metodo ?? 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: await construirHeaders(opciones.cuerpo !== undefined),
       body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
     });
   } catch {
     throw errorSinConexion();
   }
 
-  let json: RespuestaApi<T>;
-  try {
-    json = (await respuesta.json()) as RespuestaApi<T>;
-  } catch {
-    throw new ErrorApi('ERROR_DESCONOCIDO', `El servidor respondió algo inesperado (${respuesta.status}).`);
+  // DELETE exitoso: 204 sin cuerpo.
+  if (respuesta.status === 204) {
+    return { datos: undefined as T, meta: null };
   }
-  if (esRespuestaError(json)) throw new ErrorApi(json.error.codigo, json.error.mensaje);
-  return json;
+
+  const json = await leerJson(respuesta);
+  if (!respuesta.ok) throw errorDeRespuesta(json, respuesta.status);
+  if (!json) return { datos: undefined as T, meta: null };
+  if (esRespuestaError(json as RespuestaApi<T>)) {
+    throw new ErrorApi((json as { error: { codigo: CodigoError; mensaje: string } }).error.codigo,
+      (json as { error: { mensaje: string } }).error.mensaje);
+  }
+  return json as RespuestaExito<T>;
+}
+
+/** Para endpoints DELETE que responden 204. */
+export async function pedirVacio(
+  ruta: string,
+  opciones: { metodo?: Metodo; cuerpo?: unknown } = {},
+): Promise<void> {
+  await pedir<unknown>(ruta, opciones);
+}
+
+export interface OpcionesLista {
+  [clave: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Recorre las páginas de un endpoint de lista hasta traer todos los datos.
+ * La API usa `pagina`/`porPagina` (máximo 100; agenda admite 500).
+ */
+export async function pedirLista<T>(
+  ruta: string,
+  opciones: OpcionesLista = {},
+  porPagina = 100,
+): Promise<T[]> {
+  const resultado: T[] = [];
+  let pagina = 1;
+
+  while (pagina <= 50) {
+    const params = Object.entries(opciones)
+      .filter(([, valor]) => valor !== undefined)
+      .map(([clave, valor]) => `${encodeURIComponent(clave)}=${encodeURIComponent(String(valor))}`);
+    params.push(`pagina=${pagina}`, `porPagina=${porPagina}`);
+    const separador = ruta.includes('?') ? '&' : '?';
+    const respuesta = await pedir<T[]>(`${ruta}${separador}${params.join('&')}`);
+    resultado.push(...respuesta.datos);
+
+    const total = respuesta.meta?.total ?? resultado.length;
+    if (respuesta.datos.length === 0 || resultado.length >= total) break;
+    pagina += 1;
+  }
+
+  return resultado;
+}
+
+const MIME_POR_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  m4a: 'audio/m4a',
+  aac: 'audio/aac',
+  mp3: 'audio/mpeg',
+  mp4: 'video/mp4',
+};
+
+/** POST /archivos (multipart/form-data, campo `archivo`). */
+export async function subirArchivo(uri: string): Promise<ArchivoSubido> {
+  if (!(await hayConexion())) throw errorSinConexion();
+
+  const extension = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const nombre = uri.split('/').pop()?.split('?')[0] ?? `archivo-${Date.now()}.${extension}`;
+  const tipo = MIME_POR_EXTENSION[extension] ?? 'application/octet-stream';
+  const formulario = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    formulario.append('archivo', blob, nombre);
+  } else {
+    // React Native entiende { uri, name, type }; TypeScript espera un Blob.
+    formulario.append('archivo', { uri, name: nombre, type: tipo } as unknown as Blob);
+  }
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(`${URL_API}/archivos`, {
+      method: 'POST',
+      headers: await construirHeaders(false),
+      body: formulario,
+    });
+  } catch {
+    throw errorSinConexion();
+  }
+
+  const json = await leerJson(respuesta);
+  if (!respuesta.ok) throw errorDeRespuesta(json, respuesta.status);
+  if (!json || esRespuestaError(json as RespuestaApi<ArchivoSubido>)) {
+    throw errorDeRespuesta(json, respuesta.status);
+  }
+  return (json as RespuestaExito<ArchivoSubido>).datos;
 }
 
 // ---------------------------------------------------------------- Mocks
@@ -89,7 +205,7 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Simula un pedido: misma demora, mismos errores y misma forma de respuesta
- * que va a tener la API real.
+ * que tiene la API real.
  */
 export async function simular<T>(
   producir: (token: string | null) => RespuestaApi<T> | Promise<RespuestaApi<T>>,

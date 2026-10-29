@@ -20,6 +20,14 @@ export interface CredencialesIngreso {
   contrasena: string;
 }
 
+/** POST /auth/registro. El teléfono es obligatorio en la API. */
+export interface DatosRegistro {
+  nombre: string;
+  email: string;
+  contrasena: string;
+  telefono: string;
+}
+
 /**
  * Bloqueo por mantenimiento o lluvia. El documento sólo tiene `motivoBloqueo`
  * en el Turno; hace falta una entidad para poder cargarlos y borrarlos.
@@ -32,7 +40,8 @@ export interface Bloqueo {
   inicio: string | null; // "HH:MM"
   fin: string | null;
   motivo: string;
-  creadoEn: string;
+  /** La API no lo devuelve; el mock sí. */
+  creadoEn?: string;
 }
 
 export interface NuevoBloqueo {
