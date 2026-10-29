@@ -73,18 +73,27 @@ export default function Disponibilidad() {
   // Datos del espacio: una sola vez.
   useEffect(() => {
     let vivo = true;
-    Promise.all([servicioEspacios.obtenerEspacio(id), servicioEspacios.listarDeportes(), servicioReservas.listarFijas(id)])
-      .then(([e, ds, fs]) => {
+    Promise.all([servicioEspacios.obtenerEspacio(id), servicioEspacios.listarDeportes()])
+      .then(([e, ds]) => {
         if (!vivo) return;
         setEspacio(e);
         setDeportes(ds);
-        setFijas(fs);
       })
       .catch((e) => vivo && setError(aErrorApi(e)));
+
+    // GET /fijas es sólo para el personal. Un jugador ve la grilla igual,
+    // pero sin el nombre del grupo fijo.
+    if (usuario?.rol === 'encargado' || usuario?.rol === 'administrador') {
+      servicioReservas
+        .listarFijas(id)
+        .then((fs) => vivo && setFijas(fs))
+        .catch(() => vivo && setFijas([]));
+    }
+
     return () => {
       vivo = false;
     };
-  }, [id]);
+  }, [id, usuario?.rol]);
 
   const cargarGrilla = useCallback(async (dia: string) => {
     try {
@@ -137,6 +146,10 @@ export default function Disponibilidad() {
     if (!turnoElegido || !espacio) return;
     if (!usuario) {
       router.push('/login');
+      return;
+    }
+    if (usuario.rol !== 'jugador') {
+      setErrorReserva('Las reservas las hacen las cuentas de jugador.');
       return;
     }
     setReservando(true);
@@ -201,6 +214,7 @@ export default function Disponibilidad() {
   const todoBloqueado = !!turnos && turnos.every((t) => t.estado === 'mantenimiento');
   const sinLibres = !!turnos && !todoBloqueado && libres.length === 0;
   const enLimite = !!usuario && misReservas.activas >= MAXIMO_ACTIVAS;
+  const puedeReservar = !usuario || usuario.rol === 'jugador';
 
   const encabezado = (
     <View style={estilos.encabezado}>
@@ -318,11 +332,13 @@ export default function Disponibilidad() {
           </Texto>
         )}
         <Boton
-          titulo={usuario ? 'Reservar' : 'Entrar para reservar'}
+          titulo={
+            !usuario ? 'Entrar para reservar' : puedeReservar ? 'Reservar' : 'Sólo pueden reservar jugadores'
+          }
           icono={usuario ? 'checkmark-done-outline' : 'person-circle-outline'}
           onPress={reservar}
           cargando={reservando}
-          deshabilitado={!turnoElegido || enLimite}
+          deshabilitado={!turnoElegido || enLimite || !puedeReservar}
           accessibilityHint="Se paga en el lugar"
         />
       </View>

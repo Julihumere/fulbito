@@ -65,13 +65,9 @@ export default function MiReserva() {
   const ladoQr = Math.min(width - ESPACIADO.l * 2 - ESPACIADO.xl * 2, 260);
 
   function confirmarCancelacion() {
-    const titulo = sinAviso ? 'Cancelar la reserva' : 'Avisar que no van';
-    const mensaje = sinAviso
-      ? 'El turno queda libre para otra persona.'
-      : `Faltan menos de ${HORAS_CANCELACION} horas: el turno se libera, pero queda anotado como cancelación tardía.`;
-    Alert.alert(titulo, mensaje, [
+    Alert.alert('Cancelar la reserva', 'El turno queda libre para otra persona.', [
       { text: 'Volver', style: 'cancel' },
-      { text: sinAviso ? 'Cancelar reserva' : 'Avisar y cancelar', style: 'destructive', onPress: cancelar },
+      { text: 'Cancelar reserva', style: 'destructive', onPress: cancelar },
     ]);
   }
 
@@ -155,24 +151,31 @@ export default function MiReserva() {
         <Boton titulo="Cómo llegar" variante="secundario" icono="navigate-outline" onPress={() => abrirComoLlegar(espacio.coordenadas, espacio.complejo)} />
       )}
 
-      {vigente && (
+      {vigente && sinAviso && (
         <View style={estilos.cancelar}>
           <Boton
-            titulo={sinAviso ? 'Cancelar reserva' : 'Avisar que no vamos'}
+            titulo="Cancelar reserva"
             variante="secundario"
             icono="close-circle-outline"
             onPress={confirmarCancelacion}
             cargando={cancelando}
           />
           <View style={estilos.filaNota}>
-            <Icono nombre="information-circle-outline" color={sinAviso ? c.textoSuave : c.aviso} tamano={18} />
-            <Texto variante="chico" color={sinAviso ? c.textoSuave : c.aviso} style={estilos.flex}>
-              {sinAviso
-                ? `Se puede cancelar sin aviso hasta las ${horaDeIso(reserva.cancelableHasta)} de ${diaLimite}.`
-                : `Pasó el límite de ${HORAS_CANCELACION} horas: si cancelás, queda anotado como cancelación tardía.`}
+            <Icono nombre="information-circle-outline" color={c.textoSuave} tamano={18} />
+            <Texto variante="chico" color={c.textoSuave} style={estilos.flex}>
+              Se puede cancelar sin aviso hasta las {horaDeIso(reserva.cancelableHasta)} de {diaLimite}.
             </Texto>
           </View>
         </View>
+      )}
+
+      {vigente && !sinAviso && (
+        <Aviso
+          tipo="aviso"
+          icono="time-outline"
+          titulo="Fuera de plazo para cancelar"
+          detalle={`Faltan menos de ${HORAS_CANCELACION} horas. Avisale al encargado para liberar el turno.`}
+        />
       )}
     </ScrollView>
   );

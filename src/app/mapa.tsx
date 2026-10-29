@@ -3,8 +3,7 @@
  * La ubicación es opcional: sin ella se ve todo igual.
  */
 import { useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Boton } from '@/componentes/Boton';
 import { Icono } from '@/componentes/Icono';
@@ -14,6 +13,28 @@ import { useCatalogo } from '@/hooks/useCatalogo';
 import { distanciaKm, formatearDistancia, useUbicacion } from '@/hooks/useUbicacion';
 import { ESPACIADO, RADIO, useTema } from '@/tema';
 import type { Coordenadas } from '@/tipos';
+
+/**
+ * react-native-maps no tiene implementación web y su import rompe el bundle.
+ * En web se muestra una lista; en Android/iOS se carga normalmente.
+ */
+type ComponenteMapa = React.ComponentType<Record<string, unknown>>;
+let MapView: ComponenteMapa | null = null;
+let Marker: ComponenteMapa | null = null;
+if (Platform.OS !== 'web') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mapas = require('react-native-maps') as {
+      default: ComponenteMapa;
+      Marker: ComponenteMapa;
+    };
+    MapView = mapas.default;
+    Marker = mapas.Marker;
+  } catch {
+    MapView = null;
+    Marker = null;
+  }
+}
 
 interface Complejo {
   nombre: string;
@@ -27,7 +48,7 @@ export default function Mapa() {
   const insets = useSafeAreaInsets();
   const catalogo = useCatalogo();
   const ubicacion = useUbicacion();
-  const mapa = useRef<MapView>(null);
+  const mapa = useRef<{ animateToRegion: (region: Record<string, number>, ms: number) => void } | null>(null);
 
   // La entidad Complejo no existe en el documento (pregunta 8): se arma agrupando los espacios.
   const complejos = useMemo<Complejo[]>(() => {
@@ -56,24 +77,32 @@ export default function Mapa() {
 
   return (
     <View style={[estilos.raiz, { backgroundColor: c.fondo }]}>
-      <MapView
-        ref={mapa}
-        style={estilos.mapa}
-        initialRegion={{ latitude: centro.latitud, longitude: centro.longitud, latitudeDelta: 0.03, longitudeDelta: 0.03 }}
-        showsUserLocation={ubicacion.estado === 'lista'}
-        userInterfaceStyle={esNoche ? 'dark' : 'light'}
-        accessibilityLabel="Mapa de los complejos deportivos municipales"
-      >
-        {complejos.map((x) => (
-          <Marker
-            key={x.nombre}
-            coordinate={{ latitude: x.coordenadas.latitud, longitude: x.coordenadas.longitud }}
-            title={x.nombre}
-            description={`${x.espacios} ${x.espacios === 1 ? 'espacio' : 'espacios'}`}
-            pinColor={c.cesped}
-          />
-        ))}
-      </MapView>
+      {MapView && Marker ? (
+        <MapView
+          ref={mapa}
+          style={estilos.mapa}
+          initialRegion={{ latitude: centro.latitud, longitude: centro.longitud, latitudeDelta: 0.03, longitudeDelta: 0.03 }}
+          showsUserLocation={ubicacion.estado === 'lista'}
+          userInterfaceStyle={esNoche ? 'dark' : 'light'}
+          accessibilityLabel="Mapa de los complejos deportivos municipales"
+        >
+          {complejos.map((x) => (
+            <Marker
+              key={x.nombre}
+              coordinate={{ latitude: x.coordenadas.latitud, longitude: x.coordenadas.longitud }}
+              title={x.nombre}
+              description={`${x.espacios} ${x.espacios === 1 ? 'espacio' : 'espacios'}`}
+              pinColor={c.cesped}
+            />
+          ))}
+        </MapView>
+      ) : (
+        <View style={[estilos.mapa, estilos.mapaWeb, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+          <Texto variante="etiqueta" color={c.textoSuave} centrado>
+            El mapa interactivo está disponible en la app móvil.
+          </Texto>
+        </View>
+      )}
 
       <ScrollView style={estilos.lista} contentContainerStyle={[estilos.contenidoLista, { paddingBottom: insets.bottom + ESPACIADO.l }]}>
         {masCerca && masCerca.distancia !== null && (
@@ -124,6 +153,7 @@ export default function Mapa() {
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
   mapa: { height: '48%' },
+  mapaWeb: { alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, padding: 24 },
   lista: { flex: 1 },
   contenidoLista: { padding: ESPACIADO.l, gap: ESPACIADO.m },
   cerca: { flexDirection: 'row', gap: ESPACIADO.s, padding: ESPACIADO.m, borderRadius: RADIO.control, alignItems: 'center' },

@@ -1,9 +1,26 @@
 import { Linking, Platform, StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { RADIO, useTema } from '@/tema';
 import type { Coordenadas } from '@/tipos';
 import { Boton } from './Boton';
 import { Texto } from './Texto';
+
+type ComponenteMapa = React.ComponentType<Record<string, unknown>>;
+let MapView: ComponenteMapa | null = null;
+let Marker: ComponenteMapa | null = null;
+if (Platform.OS !== 'web') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mapas = require('react-native-maps') as {
+      default: ComponenteMapa;
+      Marker: ComponenteMapa;
+    };
+    MapView = mapas.default;
+    Marker = mapas.Marker;
+  } catch {
+    MapView = null;
+    Marker = null;
+  }
+}
 
 interface Props {
   complejo: string;
@@ -27,20 +44,32 @@ export function MapaComplejo({ complejo, coordenadas }: Props) {
   return (
     <View style={estilos.contenedor}>
       <Texto peso="seminegrita">Dónde queda</Texto>
-      <View style={[estilos.mapa, { borderColor: c.borde }]}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          initialRegion={region}
-          userInterfaceStyle={esNoche ? 'dark' : 'light'}
-          // El mapa de la ficha es de referencia: el scroll de la pantalla no se traba con él.
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          accessibilityLabel={`Mapa con la ubicación de ${complejo}`}
-        >
-          <Marker coordinate={{ latitude: coordenadas.latitud, longitude: coordenadas.longitud }} title={complejo} />
-        </MapView>
+      <View style={[estilos.mapa, { borderColor: c.borde, backgroundColor: c.superficie }]}>
+        {MapView && Marker ? (
+          <MapView
+            style={StyleSheet.absoluteFill}
+            initialRegion={region}
+            userInterfaceStyle={esNoche ? 'dark' : 'light'}
+            // El mapa de la ficha es de referencia: el scroll de la pantalla no se traba con él.
+            scrollEnabled={false}
+            zoomEnabled={false}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            accessibilityLabel={`Mapa con la ubicación de ${complejo}`}
+          >
+            <Marker coordinate={{ latitude: coordenadas.latitud, longitude: coordenadas.longitud }} title={complejo} />
+          </MapView>
+        ) : (
+          <View style={estilos.fallback}>
+            <Texto variante="etiqueta" color={c.textoSuave} centrado>
+              {complejo}
+              {'\n'}
+              {coordenadas.latitud.toFixed(5)}, {coordenadas.longitud.toFixed(5)}
+              {'\n\n'}
+              El mapa interactivo está disponible en la app móvil.
+            </Texto>
+          </View>
+        )}
       </View>
       <Boton
         titulo="Cómo llegar"
@@ -55,4 +84,5 @@ export function MapaComplejo({ complejo, coordenadas }: Props) {
 const estilos = StyleSheet.create({
   contenedor: { gap: 8 },
   mapa: { height: 200, borderRadius: RADIO.tarjeta, overflow: 'hidden', borderWidth: 1 },
+  fallback: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
 });

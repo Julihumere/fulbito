@@ -4,7 +4,7 @@
  * Sin señal se arma con el catálogo guardado y las fotos descargadas.
  */
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -160,7 +160,8 @@ export default function FichaEspacio() {
     if (elegida.canceled) return;
     setSubiendo(true);
     try {
-      const local = copiarFotoElegida(elegida.assets[0].uri);
+      const elegidaUri = elegida.assets[0].uri;
+      const local = Platform.OS === 'web' ? elegidaUri : copiarFotoElegida(elegidaUri);
       const actualizado = await servicioEspacios.agregarFoto(id, local);
       setEspacio(actualizado);
       setMedios(estadoGuardado(actualizado));
