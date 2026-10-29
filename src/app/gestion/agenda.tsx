@@ -16,7 +16,7 @@ import { useCatalogo } from '@/hooks/useCatalogo';
 import { aErrorApi, gestion } from '@/servicios';
 import { ESPACIADO, FUENTES, RADIO, useTema } from '@/tema';
 import type { EntradaAgenda } from '@/tipos';
-import { horaDeIso, hoy } from '@/utilidades/fechas';
+import { horaDeIso, hoy, instante } from '@/utilidades/fechas';
 import { turnoPasado } from '@/utilidades/grilla';
 import { UMBRAL_MARCADO } from '@/utilidades/reglas';
 
@@ -130,7 +130,14 @@ function FilaAgenda({
   const { c } = useTema();
   const { turno, reserva, titular, titularFijo } = entrada;
   const marcado = !!titular && titular.cancelacionesTardias >= UMBRAL_MARCADO;
-  const pendiente = reserva?.estado === 'confirmada' && turno.fecha === hoy();
+  // La API acepta el ingreso desde 30 minutos antes hasta el fin del turno.
+  const inicioTurno = instante(turno.fecha, turno.inicio);
+  const finTurno = instante(turno.fecha, turno.fin);
+  const pendiente =
+    reserva?.estado === 'confirmada' &&
+    turno.fecha === hoy() &&
+    ahora >= inicioTurno - 30 * 60 * 1000 &&
+    ahora <= finTurno;
   const empezo = turnoPasado(turno, ahora);
 
   let quien: string;

@@ -167,11 +167,18 @@ export default function Escanear() {
         r = await validarSinSenal(codigo.trim().toUpperCase(), espacioId);
       } else {
         const titulos: Record<string, string> = {
+          CODIGO_DE_OTRO_DIA: 'No es de hoy',
           QR_OTRO_DIA: 'No es de hoy',
+          CODIGO_DE_OTRO_ESPACIO: 'Es de otra cancha',
           QR_OTRA_CANCHA: 'Es de otra cancha',
+          INGRESO_YA_REGISTRADO: 'Código ya usado',
           QR_YA_USADO: 'Código ya usado',
+          RESERVA_CANCELADA: 'Reserva cancelada',
+          RESERVA_AUSENTE: 'Reserva marcada ausente',
           QR_CANCELADO: 'Reserva no activa',
+          CODIGO_INVALIDO: 'Código no válido',
           QR_INVALIDO: 'Código no válido',
+          FUERA_DE_HORARIO: 'Fuera de horario',
         };
         r = { tipo: 'invalido', titulo: titulos[err.codigo] ?? 'No se pudo validar', detalle: err.message };
       }

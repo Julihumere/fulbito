@@ -87,22 +87,20 @@ export default function Bloqueos() {
     setGuardando(true);
     setMensaje(null);
     try {
-      let suspendidas = 0;
       for (const espacioId of destino) {
-        const r = await gestion.crearBloqueo({
+        await gestion.crearBloqueo({
           espacioId,
           fecha,
           inicio: diaEntero ? null : desde,
           fin: diaEntero ? null : hasta,
           motivo,
         });
-        suspendidas += r.suspendidas;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMensaje({
         tipo: 'aviso',
         titulo: 'Bloqueado',
-        detalle: suspendidas === 0 ? 'No había reservas en esos turnos.' : `Se suspendieron ${suspendidas} reservas y se avisó a cada titular.`,
+        detalle: 'Se bloquearon los turnos. Si había reservas, se cancelaron y se avisó a cada titular.',
       });
       setMotivo('');
       await cargar();

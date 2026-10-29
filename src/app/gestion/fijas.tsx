@@ -9,6 +9,7 @@ import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
 import { Icono } from '@/componentes/Icono';
 import { Texto } from '@/componentes/Texto';
+import { useSesion } from '@/contexto/SesionContexto';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import { aErrorApi, reservas as servicioReservas, type ErrorApi } from '@/servicios';
 import { ESPACIADO, RADIO, useTema } from '@/tema';
@@ -20,6 +21,7 @@ const vigente = (f: ReservaFija) => f.activa && (f.hasta === null || f.hasta >= 
 
 export default function Fijas() {
   const { c } = useTema();
+  const { usuario } = useSesion();
   const catalogo = useCatalogo();
   const [fijas, setFijas] = useState<ReservaFija[] | null>(null);
   const [error, setError] = useState<ErrorApi | null>(null);
@@ -57,6 +59,19 @@ export default function Fijas() {
   }
 
   const nombreEspacio = (id: string) => catalogo.espacios.find((e) => e.id === id)?.nombre ?? id;
+
+  if (usuario?.rol !== 'administrador') {
+    return (
+      <View style={[estilos.lista, { backgroundColor: c.fondo }]}>
+        <Aviso
+          tipo="aviso"
+          icono="lock-closed-outline"
+          titulo="Sólo administración"
+          detalle="Las reservas fijas las gestiona una cuenta de administrador."
+        />
+      </View>
+    );
+  }
 
   return (
     <FlatList

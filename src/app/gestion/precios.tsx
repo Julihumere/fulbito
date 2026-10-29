@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
 import { Texto } from '@/componentes/Texto';
+import { useSesion } from '@/contexto/SesionContexto';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import { aErrorApi, espacios as servicioEspacios } from '@/servicios';
 import { ESCALA, ESPACIADO, FUENTES, RADIO, TOQUE_MINIMO, useTema } from '@/tema';
@@ -13,8 +14,22 @@ import { formatearPrecio } from '@/utilidades/formato';
 
 export default function Precios() {
   const { c } = useTema();
+  const { usuario } = useSesion();
   const catalogo = useCatalogo();
   const [mensaje, setMensaje] = useState<{ tipo: 'aviso' | 'error'; titulo: string; detalle?: string } | null>(null);
+
+  if (usuario?.rol !== 'administrador') {
+    return (
+      <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={estilos.pantalla}>
+        <Aviso
+          tipo="aviso"
+          icono="lock-closed-outline"
+          titulo="Sólo administración"
+          detalle="Los precios los cambia una cuenta de administrador."
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={estilos.pantalla} keyboardShouldPersistTaps="handled">

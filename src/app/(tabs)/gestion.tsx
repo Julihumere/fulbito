@@ -7,12 +7,18 @@ import { Texto } from '@/componentes/Texto';
 import { useSesion } from '@/contexto/SesionContexto';
 import { ESPACIADO, RADIO, useTema } from '@/tema';
 
-const ACCIONES: { titulo: string; detalle: string; icono: NombreIcono; ruta: Href }[] = [
+const ACCIONES: {
+  titulo: string;
+  detalle: string;
+  icono: NombreIcono;
+  ruta: Href;
+  soloAdmin?: boolean;
+}[] = [
   { titulo: 'Escanear ingreso', detalle: 'Leer el QR en la puerta y registrar la llegada.', icono: 'qr-code-outline', ruta: '/gestion/escanear' },
   { titulo: 'Agenda del día', detalle: 'Todos los espacios, quién viene y presentes o ausentes.', icono: 'today-outline', ruta: '/gestion/agenda' },
   { titulo: 'Bloqueos', detalle: 'Suspender turnos o días por lluvia o mantenimiento.', icono: 'rainy-outline', ruta: '/gestion/bloqueos' },
-  { titulo: 'Reservas fijas', detalle: 'Grupos y clubes que tienen el turno todas las semanas.', icono: 'repeat-outline', ruta: '/gestion/fijas' },
-  { titulo: 'Precios', detalle: 'Cambiar el precio por hora de cada espacio.', icono: 'pricetag-outline', ruta: '/gestion/precios' },
+  { titulo: 'Reservas fijas', detalle: 'Grupos y clubes que tienen el turno todas las semanas.', icono: 'repeat-outline', ruta: '/gestion/fijas', soloAdmin: true },
+  { titulo: 'Precios', detalle: 'Cambiar el precio por hora de cada espacio.', icono: 'pricetag-outline', ruta: '/gestion/precios', soloAdmin: true },
 ];
 
 export default function Gestion() {
@@ -20,6 +26,7 @@ export default function Gestion() {
   const insets = useSafeAreaInsets();
   const { usuario } = useSesion();
   const esPersonal = usuario?.rol === 'encargado' || usuario?.rol === 'administrador';
+  const visibles = ACCIONES.filter((a) => !a.soloAdmin || usuario?.rol === 'administrador');
 
   return (
     <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={[estilos.pantalla, { paddingTop: insets.top + ESPACIADO.l }]}>
@@ -29,7 +36,7 @@ export default function Gestion() {
       {!esPersonal ? (
         <Texto color={c.textoSuave}>Esta sección es sólo para el personal de la Dirección de Deportes.</Texto>
       ) : (
-        ACCIONES.map((a) => (
+        visibles.map((a) => (
           <Pressable
             key={a.titulo}
             onPress={() => router.push(a.ruta)}

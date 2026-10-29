@@ -1,6 +1,6 @@
 /** Alta y edición de una reserva fija. Sin `id` en la ruta es una nueva. */
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Aviso } from '@/componentes/Aviso';
@@ -8,6 +8,7 @@ import { Boton } from '@/componentes/Boton';
 import { CampoTexto } from '@/componentes/CampoTexto';
 import { Chip } from '@/componentes/Chip';
 import { Texto } from '@/componentes/Texto';
+import { useSesion } from '@/contexto/SesionContexto';
 import { useCatalogo } from '@/hooks/useCatalogo';
 import { aErrorApi, gestion, reservas as servicioReservas } from '@/servicios';
 import { ESPACIADO, RADIO, useTema } from '@/tema';
@@ -31,6 +32,7 @@ const VACIA: DatosReservaFija = {
 
 export default function FormularioFija() {
   const { c } = useTema();
+  const { usuario } = useSesion();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const catalogo = useCatalogo();
   const [datos, setDatos] = useState<DatosReservaFija | null>(id ? null : VACIA);
@@ -54,6 +56,19 @@ export default function FormularioFija() {
       })
       .catch((e) => setError(aErrorApi(e).message));
   }, [id]);
+
+  if (usuario?.rol !== 'administrador') {
+    return (
+      <View style={[estilos.pantalla, { backgroundColor: c.fondo }]}>
+        <Aviso
+          tipo="aviso"
+          icono="lock-closed-outline"
+          titulo="Sólo administración"
+          detalle="Las reservas fijas las gestiona una cuenta de administrador."
+        />
+      </View>
+    );
+  }
 
   if (!datos) {
     return (
@@ -89,6 +104,26 @@ export default function FormularioFija() {
     }
   }
 
+  function darDeBaja() {
+    if (!id) return;
+    Alert.alert('Dar de baja la fija', 'La fija deja de ocupar la grilla. Las reservas ya hechas no se tocan.', [
+      { text: 'Volver', style: 'cancel' },
+      {
+        text: 'Dar de baja',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await gestion.darDeBajaFija(id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          } catch (e) {
+            setError(aErrorApi(e).message);
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={estilos.pantalla} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: id ? 'Editar fija' : 'Nueva fija' }} />
@@ -104,11 +139,24 @@ export default function FormularioFija() {
       <Texto variante="etiqueta" peso="seminegrita">
         Espacio
       </Texto>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
-        {catalogo.espacios.map((e) => (
-          <Chip key={e.id} texto={e.nombre.replace(' — ', ' ')} activo={datos.espacioId === e.id} onPress={() => cambiar({ espacioId: e.id })} />
-        ))}
-      </ScrollView>
+      {id ? (
+        <View style={[estilos.interruptor, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+          <View style={estilos.flex}>
+            <Texto peso="seminegrita">
+              {catalogo.espacios.find((e) => e.id === datos.espacioId)?.nombre ?? datos.espacioId}
+            </Texto>
+            <Texto variante="chico" color={c.textoSuave}>
+              La API no permite cambiar el espacio de una fija existente.
+            </Texto>
+          </View>
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+          {catalogo.espacios.map((e) => (
+            <Chip key={e.id} texto={e.nombre.replace(' — ', ' ')} activo={datos.espacioId === e.id} onPress={() => cambiar({ espacioId: e.id })} />
+          ))}
+        </ScrollView>
+      )}
 
       <Texto variante="etiqueta" peso="seminegrita">
         Día de la semana
@@ -183,6 +231,15 @@ export default function FormularioFija() {
         cargando={guardando}
         deshabilitado={!datos.espacioId || !datos.titular.trim()}
       />
+      {id && (
+        <Boton
+          titulo="Dar de baja"
+          variante="secundario"
+          icono="trash-outline"
+          onPress={darDeBaja}
+          deshabilitado={guardando}
+        />
+      )}
     </ScrollView>
   );
 }
