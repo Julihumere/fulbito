@@ -30,9 +30,12 @@ Después, en `.env.local`:
 
 ```bash
 EXPO_PUBLIC_USAR_MOCKS=false
-# En la computadora / web:
-EXPO_PUBLIC_API_URL=http://localhost:3000
-# En el teléfono, la IP de la computadora en la misma wifi:
+# API desplegada y expuesta a internet (Dokploy + Tailscale Funnel), es la que
+# ya está configurada:
+EXPO_PUBLIC_API_URL=https://fulbito-api.taild5debe.ts.net:8443
+
+# Alternativas para desarrollo local:
+# EXPO_PUBLIC_API_URL=http://localhost:3000
 # EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
 ```
 
