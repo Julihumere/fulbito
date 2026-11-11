@@ -8,9 +8,9 @@ import * as SystemUI from 'expo-system-ui';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { inicializarApariencia } from '@/almacenamiento/apariencia';
 import { AvisosProvider } from '@/contexto/AvisosContexto';
-import { ReservasProvider } from '@/contexto/ReservasContexto';
+import { ReservasProvider, useReservas } from '@/contexto/ReservasContexto';
 import { SesionProvider, useSesion } from '@/contexto/SesionContexto';
-import { configurarNotificaciones, limpiarUltimaRespuesta, useUltimaRespuesta } from '@/notificaciones';
+import { configurarNotificaciones, escucharNotificaciones, limpiarUltimaRespuesta, useUltimaRespuesta } from '@/notificaciones';
 import { ARCHIVOS_FUENTES, FUENTES, useTema } from '@/tema';
 
 SplashScreen.preventAutoHideAsync();
@@ -60,10 +60,21 @@ function Navegacion() {
     if (estado !== 'cargando') SplashScreen.hideAsync();
   }, [estado]);
 
+  // Si le cancelan una reserva con la app abierta, se actualiza la lista (y se borra su recordatorio local).
+  const { recargar } = useReservas();
+  useEffect(
+    () => escucharNotificaciones((datos) => {
+      if (datos.tipo === 'reserva-cancelada') void recargar();
+    }),
+    [recargar],
+  );
+
   // Tocar una notificación abre su pantalla (también si la app estaba cerrada).
   const ultimaRespuesta = useUltimaRespuesta();
   useEffect(() => {
-    const url = ultimaRespuesta?.notification.request.content.data?.url;
+    const datos = ultimaRespuesta?.notification.request.content.data;
+    // Las push del servidor traen `reservaId` en lugar de `url`.
+    const url = datos?.url ?? (typeof datos?.reservaId === 'string' ? `/reserva/${datos.reservaId}` : undefined);
     if (estado !== 'cargando' && typeof url === 'string') {
       router.push(url as Parameters<typeof router.push>[0]);
       limpiarUltimaRespuesta();
@@ -100,6 +111,7 @@ function Navegacion() {
         <Stack.Screen name="mapa" options={{ title: 'Complejos' }} />
         <Stack.Screen name="avisos" options={{ title: 'Avisos' }} />
         <Stack.Screen name="gestion/agenda" options={{ title: 'Agenda del día' }} />
+        <Stack.Screen name="gestion/reservas" options={{ title: 'Reservas' }} />
         <Stack.Screen name="gestion/escanear" options={{ title: 'Escanear ingreso' }} />
         <Stack.Screen name="gestion/bloqueos" options={{ title: 'Bloqueos' }} />
         <Stack.Screen name="gestion/fijas" options={{ title: 'Reservas fijas' }} />

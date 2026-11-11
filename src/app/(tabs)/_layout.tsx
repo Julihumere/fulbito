@@ -11,7 +11,7 @@ function icono(activo: NombreIcono, inactivo: NombreIcono) {
   };
 }
 
-/** Barra inferior: Inicio, Mis reservas, Gestión (sólo personal) y Perfil. */
+/** Barra inferior: Inicio, Mis reservas (no para el personal), Gestión (sólo personal) y Perfil. */
 export default function LayoutPestanas() {
   const { c, esNoche } = useTema();
   const insets = useSafeAreaInsets();
@@ -31,7 +31,10 @@ export default function LayoutPestanas() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icono('home', 'home-outline') }} />
-      <Tabs.Screen name="turnos" options={{ title: 'Mis reservas', tabBarIcon: icono('calendar', 'calendar-outline') }} />
+      <Tabs.Screen
+        name="turnos"
+        options={{ title: 'Mis reservas', tabBarIcon: icono('calendar', 'calendar-outline'), href: esPersonal ? null : undefined }}
+      />
       <Tabs.Screen
         name="gestion"
         options={{ title: 'Gestión', tabBarIcon: icono('briefcase', 'briefcase-outline'), href: esPersonal ? undefined : null }}

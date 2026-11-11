@@ -17,3 +17,9 @@ export const HORAS_RECORDATORIO = 2;
  * El documento dice "repetidas veces" sin número (pregunta 7).
  */
 export const UMBRAL_MARCADO = 3;
+
+/**
+ * WhatsApp de la Dirección de Deportes, con código de país y sin signos (ej. 5493445123456).
+ * Se carga con EXPO_PUBLIC_WHATSAPP_DIRECCION; sin número, no se muestra el botón de avisar.
+ */
+export const WHATSAPP_DIRECCION = (process.env.EXPO_PUBLIC_WHATSAPP_DIRECCION ?? '').replace(/\D/g, '');

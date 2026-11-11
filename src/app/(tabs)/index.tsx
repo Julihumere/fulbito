@@ -2,39 +2,53 @@
  * Inicio. Se puede usar sin cuenta: muestra los once espacios con filtros por
  * deporte, complejo, luz, techado y nombre. Con sesión, suma el próximo turno con su código.
  */
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { useNetworkState } from 'expo-network';
-import { router, useFocusEffect, useRootNavigationState } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { guardarFavoritos, leerFavoritos } from '@/almacenamiento/favoritos';
-import { Aviso } from '@/componentes/Aviso';
-import { Boton } from '@/componentes/Boton';
-import { CespedFranjas, CirculoCal } from '@/componentes/Cancha';
-import { CampoTexto } from '@/componentes/CampoTexto';
-import { Chip } from '@/componentes/Chip';
-import { Icono, nombreIconoSeguro } from '@/componentes/Icono';
-import { Marcador } from '@/componentes/Marcador';
-import { TarjetaEspacio } from '@/componentes/TarjetaEspacio';
-import { TarjetaProximoTurno } from '@/componentes/TarjetaProximoTurno';
-import { Texto } from '@/componentes/Texto';
-import { useAvisos } from '@/contexto/AvisosContexto';
-import { useReservas } from '@/contexto/ReservasContexto';
-import { useSesion } from '@/contexto/SesionContexto';
-import { useCatalogo } from '@/hooks/useCatalogo';
-import { aErrorApi, usuarios as servicioUsuarios } from '@/servicios';
-import { ESPACIADO, RADIO, TOQUE_MINIMO, useTema } from '@/tema';
-import type { Espacio, Rol } from '@/tipos';
-import { primerNombre } from '@/utilidades/formato';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+} from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { useNetworkState } from "expo-network";
+import { router, useFocusEffect, useRootNavigationState } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { guardarFavoritos, leerFavoritos } from "@/almacenamiento/favoritos";
+import { Aviso } from "@/componentes/Aviso";
+import { Boton } from "@/componentes/Boton";
+import { CespedFranjas, CirculoCal } from "@/componentes/Cancha";
+import { CampoTexto } from "@/componentes/CampoTexto";
+import { Chip } from "@/componentes/Chip";
+import { Icono, nombreIconoSeguro } from "@/componentes/Icono";
+import { Marcador } from "@/componentes/Marcador";
+import { TarjetaEspacio } from "@/componentes/TarjetaEspacio";
+import { TarjetaProximoTurno } from "@/componentes/TarjetaProximoTurno";
+import { Texto } from "@/componentes/Texto";
+import { useAvisos } from "@/contexto/AvisosContexto";
+import { useReservas } from "@/contexto/ReservasContexto";
+import { useSesion } from "@/contexto/SesionContexto";
+import { useCatalogo } from "@/hooks/useCatalogo";
+import { aErrorApi, usuarios as servicioUsuarios } from "@/servicios";
+import { ESPACIADO, RADIO, TOQUE_MINIMO, useTema } from "@/tema";
+import type { Espacio, Rol } from "@/tipos";
+import { primerNombre } from "@/utilidades/formato";
 
 const NOMBRE_ROL: Record<Rol, string> = {
-  jugador: 'Jugador',
-  encargado: 'Encargado',
-  administrador: 'Administrador',
+  jugador: "Jugador",
+  encargado: "Encargado",
+  administrador: "Administrador",
 };
 
 const normalizar = (texto: string) =>
-  texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 export default function Inicio() {
   const { c } = useTema();
@@ -53,29 +67,36 @@ export default function Inicio() {
   const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [conLuz, setConLuz] = useState(false);
   const [soloTechados, setSoloTechados] = useState(false);
-  const [busqueda, setBusqueda] = useState('');
+  const [busqueda, setBusqueda] = useState("");
   const [errorFavorito, setErrorFavorito] = useState<string | null>(null);
   const favoritos = usuario?.espaciosFavoritos ?? favoritosInvitado;
 
-  useFocusEffect(useCallback(() => {
-    let vigente = true;
-    if (usuario) {
-      setFavoritosCargados(true);
-      return () => { vigente = false; };
-    }
-    setFavoritosCargados(false);
-    leerFavoritos().then((ids) => {
-      if (vigente) {
-        setFavoritosInvitado(ids);
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
+      if (usuario) {
         setFavoritosCargados(true);
+        return () => {
+          vigente = false;
+        };
       }
-    });
-    return () => { vigente = false; };
-  }, [usuario]));
+      setFavoritosCargados(false);
+      leerFavoritos().then((ids) => {
+        if (vigente) {
+          setFavoritosInvitado(ids);
+          setFavoritosCargados(true);
+        }
+      });
+      return () => {
+        vigente = false;
+      };
+    }, [usuario]),
+  );
 
   // La primera vez que se abre la app se ofrece el ingreso (con salida a "mirar sin cuenta").
   useEffect(() => {
-    if (navegacion?.key && primeraVez && estado === 'invitado') router.push('/login');
+    if (navegacion?.key && primeraVez && estado === "invitado")
+      router.push("/login");
   }, [navegacion?.key, primeraVez, estado]);
 
   const complejos = useMemo(
@@ -83,21 +104,35 @@ export default function Inicio() {
     [catalogo.espacios],
   );
   const deportesPresentes = useMemo(
-    () => catalogo.deportes.filter((d) => catalogo.espacios.some((e) => e.deporteId === d.id)),
+    () =>
+      catalogo.deportes.filter((d) =>
+        catalogo.espacios.some((e) => e.deporteId === d.id),
+      ),
     [catalogo.deportes, catalogo.espacios],
   );
   const visibles = useMemo(() => {
     const texto = normalizar(busqueda);
     return catalogo.espacios
-      .filter((e) =>
-        (!deporteId || e.deporteId === deporteId) &&
-        (!complejo || e.complejo === complejo) &&
-        (!soloFavoritos || favoritos.includes(e.id)) &&
-        (!conLuz || e.iluminacion) &&
-        (!soloTechados || e.techado) &&
-        (!texto || normalizar(`${e.nombre} ${e.complejo}`).includes(texto)))
+      .filter(
+        (e) =>
+          (!deporteId || e.deporteId === deporteId) &&
+          (!complejo || e.complejo === complejo) &&
+          (!soloFavoritos || favoritos.includes(e.id)) &&
+          (!conLuz || e.iluminacion) &&
+          (!soloTechados || e.techado) &&
+          (!texto || normalizar(`${e.nombre} ${e.complejo}`).includes(texto)),
+      )
       .sort((a, b) => Number(b.activo) - Number(a.activo));
-  }, [catalogo.espacios, deporteId, complejo, soloFavoritos, favoritos, conLuz, soloTechados, busqueda]);
+  }, [
+    catalogo.espacios,
+    deporteId,
+    complejo,
+    soloFavoritos,
+    favoritos,
+    conLuz,
+    soloTechados,
+    busqueda,
+  ]);
 
   function limpiarFiltros() {
     setDeporteId(null);
@@ -105,11 +140,18 @@ export default function Inicio() {
     setSoloFavoritos(false);
     setConLuz(false);
     setSoloTechados(false);
-    setBusqueda('');
+    setBusqueda("");
   }
 
-  const sinConexion = red.isConnected === false || red.isInternetReachable === false;
-  const deporteDe = (e: Espacio) => catalogo.deportes.find((d) => d.id === e.deporteId);
+  const sinConexion =
+    red.isConnected === false || red.isInternetReachable === false;
+
+  console.log(red);
+
+  console.log(sinConexion);
+
+  const deporteDe = (e: Espacio) =>
+    catalogo.deportes.find((d) => d.id === e.deporteId);
 
   async function refrescar() {
     setRefrescando(true);
@@ -141,46 +183,70 @@ export default function Inicio() {
       <Cabecera topInset={insets.top} />
 
       <View style={estilos.bloque}>
-        {errorFavorito && <Aviso tipo="error" titulo="No se pudo guardar el favorito" detalle={errorFavorito} />}
+        {errorFavorito && (
+          <Aviso
+            tipo="error"
+            titulo="No se pudo guardar el favorito"
+            detalle={errorFavorito}
+          />
+        )}
         {(sinConexion || catalogo.copiaDel) && catalogo.espacios.length > 0 && (
           <Aviso
             tipo="aviso"
             titulo="Sin conexión"
             detalle="Ves los espacios guardados en el teléfono. Los turnos libres pueden haber cambiado."
-            accion={{ titulo: 'Reintentar', onPress: refrescar }}
+            accion={{ titulo: "Reintentar", onPress: refrescar }}
           />
         )}
 
         {usuario && proximo.proxima && (
           <Pressable
-            onPress={() => router.push({ pathname: '/reserva/[id]', params: { id: proximo.proxima?.reserva.id ?? '' } })}
+            onPress={() =>
+              router.push({
+                pathname: "/reserva/[id]",
+                params: { id: proximo.proxima?.reserva.id ?? "" },
+              })
+            }
             accessibilityRole="button"
             accessibilityHint="Abre la reserva con el código QR"
           >
             <TarjetaProximoTurno
               reserva={proximo.proxima.reserva}
               turno={proximo.proxima.turno}
-              espacio={catalogo.espacios.find((e) => e.id === proximo.proxima?.reserva.espacioId)}
+              espacio={catalogo.espacios.find(
+                (e) => e.id === proximo.proxima?.reserva.espacioId,
+              )}
               activas={proximo.activas}
               ahora={proximo.ahora}
             />
           </Pressable>
         )}
-        {usuario && !proximo.proxima && usuario.rol === 'jugador' && (
+        {usuario && !proximo.proxima && usuario.rol === "jugador" && (
           <Texto variante="etiqueta" color={c.textoSuave}>
-            No tenés reservas próximas. Elegí un espacio para consultar los horarios disponibles.
+            No tenés reservas próximas. Elegí un espacio para consultar los
+            horarios disponibles.
           </Texto>
         )}
 
-        {usuario && usuario.rol !== 'jugador' && (
+        {usuario && usuario.rol !== "jugador" && (
           <Pressable
-            onPress={() => router.navigate('/gestion')}
+            onPress={() => router.navigate("/gestion")}
             accessibilityRole="button"
-            style={({ pressed }) => [estilos.panel, { backgroundColor: c.superficie, borderColor: c.borde }, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [
+              estilos.panel,
+              { backgroundColor: c.superficie, borderColor: c.borde },
+              pressed && { opacity: 0.85 },
+            ]}
           >
-            <Icono nombre="shield-checkmark-outline" color={c.cesped} tamano={22} />
+            <Icono
+              nombre="shield-checkmark-outline"
+              color={c.cesped}
+              tamano={22}
+            />
             <View style={estilos.flex}>
-              <Texto peso="seminegrita">Cuenta de {NOMBRE_ROL[usuario.rol].toLowerCase()}</Texto>
+              <Texto peso="seminegrita">
+                Cuenta de {NOMBRE_ROL[usuario.rol].toLowerCase()}
+              </Texto>
               <Texto variante="etiqueta" color={c.textoSuave}>
                 Agenda del día, escaneo de ingresos, bloqueos, fijas y precios.
               </Texto>
@@ -202,11 +268,23 @@ export default function Inicio() {
               clearButtonMode="while-editing"
             />
 
-            <Texto variante="etiqueta" peso="seminegrita" style={estilos.separado}>
+            <Texto
+              variante="etiqueta"
+              peso="seminegrita"
+              style={estilos.separado}
+            >
               Deporte
             </Texto>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
-              <Chip texto="Todos" activo={deporteId === null} onPress={() => setDeporteId(null)} />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={estilos.chips}
+            >
+              <Chip
+                texto="Todos"
+                activo={deporteId === null}
+                onPress={() => setDeporteId(null)}
+              />
               {deportesPresentes.map((d) => (
                 <Chip
                   key={d.id}
@@ -219,29 +297,51 @@ export default function Inicio() {
               ))}
             </ScrollView>
 
-            <Texto variante="etiqueta" peso="seminegrita" style={estilos.separado}>
+            <Texto
+              variante="etiqueta"
+              peso="seminegrita"
+              style={estilos.separado}
+            >
               Complejo
             </Texto>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
-              <Chip texto="Todos" activo={complejo === null} onPress={() => setComplejo(null)} />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={estilos.chips}
+            >
+              <Chip
+                texto="Todos"
+                activo={complejo === null}
+                onPress={() => setComplejo(null)}
+              />
               {complejos.map((nombre) => (
                 <Chip
                   key={nombre}
                   texto={nombre}
                   icono="location-outline"
                   activo={complejo === nombre}
-                  onPress={() => setComplejo(complejo === nombre ? null : nombre)}
+                  onPress={() =>
+                    setComplejo(complejo === nombre ? null : nombre)
+                  }
                 />
               ))}
             </ScrollView>
 
-            <Texto variante="etiqueta" peso="seminegrita" style={estilos.separado}>
+            <Texto
+              variante="etiqueta"
+              peso="seminegrita"
+              style={estilos.separado}
+            >
               Características
             </Texto>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={estilos.chips}
+            >
               <Chip
                 texto="Con luz"
-                icono={conLuz ? 'bulb' : 'bulb-outline'}
+                icono={conLuz ? "bulb" : "bulb-outline"}
                 activo={conLuz}
                 onPress={() => setConLuz((actual) => !actual)}
               />
@@ -255,11 +355,13 @@ export default function Inicio() {
 
             <View style={estilos.filaResultados}>
               <Texto variante="chico" color={c.textoSuave}>
-                {visibles.length === 1 ? '1 espacio' : `${visibles.length} espacios`}
+                {visibles.length === 1
+                  ? "1 espacio"
+                  : `${visibles.length} espacios`}
               </Texto>
               <Chip
                 texto={`Favoritos (${favoritos.length})`}
-                icono={soloFavoritos ? 'heart' : 'heart-outline'}
+                icono={soloFavoritos ? "heart" : "heart-outline"}
                 activo={soloFavoritos}
                 onPress={() => setSoloFavoritos((actual) => !actual)}
               />
@@ -284,14 +386,16 @@ export default function Inicio() {
         tipo="error"
         titulo="No pudimos cargar los espacios"
         detalle={catalogo.error.message}
-        accion={{ titulo: 'Reintentar', onPress: refrescar }}
+        accion={{ titulo: "Reintentar", onPress: refrescar }}
       />
     );
   } else {
     vacio = (
       <View style={estilos.centro}>
         <Texto centrado color={c.textoSuave}>
-          {soloFavoritos ? 'Todavía no marcaste espacios favoritos.' : 'No hay espacios con esos filtros.'}
+          {soloFavoritos
+            ? "Todavía no marcaste espacios favoritos."
+            : "No hay espacios con esos filtros."}
         </Texto>
         <Boton
           titulo="Ver todos"
@@ -315,14 +419,33 @@ export default function Inicio() {
           <TarjetaEspacio
             espacio={item}
             deporte={deporteDe(item)}
-            onPress={() => router.push({ pathname: '/espacio/[id]', params: { id: item.id } })}
-            onTurnos={item.activo ? () => router.push({ pathname: '/disponibilidad/[id]', params: { id: item.id } }) : undefined}
+            onPress={() =>
+              router.push({
+                pathname: "/espacio/[id]",
+                params: { id: item.id },
+              })
+            }
+            onTurnos={
+              item.activo
+                ? () =>
+                    router.push({
+                      pathname: "/disponibilidad/[id]",
+                      params: { id: item.id },
+                    })
+                : undefined
+            }
           />
           <Pressable
-            onPress={() => { void alternarFavorito(item.id); }}
+            onPress={() => {
+              void alternarFavorito(item.id);
+            }}
             disabled={!favoritosCargados}
             accessibilityRole="button"
-            accessibilityLabel={favoritos.includes(item.id) ? `Quitar ${item.nombre} de favoritos` : `Agregar ${item.nombre} a favoritos`}
+            accessibilityLabel={
+              favoritos.includes(item.id)
+                ? `Quitar ${item.nombre} de favoritos`
+                : `Agregar ${item.nombre} a favoritos`
+            }
             accessibilityHint="Guarda este espacio en tu lista de favoritos"
             style={({ pressed }) => [
               estilos.botonFavorito,
@@ -331,13 +454,22 @@ export default function Inicio() {
               !favoritosCargados && estilos.favoritoDeshabilitado,
             ]}
           >
-            <Icono nombre={favoritos.includes(item.id) ? 'heart' : 'heart-outline'} color={favoritos.includes(item.id) ? c.peligro : c.texto} tamano={20} />
+            <Icono
+              nombre={favoritos.includes(item.id) ? "heart" : "heart-outline"}
+              color={favoritos.includes(item.id) ? c.peligro : c.texto}
+              tamano={20}
+            />
           </Pressable>
         </View>
       )}
       contentContainerStyle={{ paddingBottom: insets.bottom + ESPACIADO.xl }}
       refreshControl={
-        <RefreshControl refreshing={refrescando} onRefresh={refrescar} tintColor={c.cesped} colors={[c.cesped]} />
+        <RefreshControl
+          refreshing={refrescando}
+          onRefresh={refrescar}
+          tintColor={c.cesped}
+          colors={[c.cesped]}
+        />
       }
     />
   );
@@ -350,34 +482,51 @@ function Cabecera({ topInset }: { topInset: number }) {
   const { noLeidos } = useAvisos();
 
   return (
-    <View style={[estilos.cabecera, { paddingTop: topInset + ESPACIADO.m, backgroundColor: c.cesped }]}>
+    <View
+      style={[
+        estilos.cabecera,
+        { paddingTop: topInset + ESPACIADO.m, backgroundColor: c.cesped },
+      ]}
+    >
       <CespedFranjas franjas={5} />
 
       <View style={estilos.filaCabecera}>
         <Marcador />
         <View style={estilos.accionesCabecera}>
-          <BotonCabecera icono="map-outline" etiqueta="Complejos en el mapa" onPress={() => router.push('/mapa')} />
+          <BotonCabecera
+            icono="map-outline"
+            etiqueta="Complejos en el mapa"
+            onPress={() => router.push("/mapa")}
+          />
           {usuario ? (
             <BotonCabecera
-              icono={noLeidos > 0 ? 'notifications' : 'notifications-outline'}
-              etiqueta={noLeidos > 0 ? `Avisos, ${noLeidos} sin leer` : 'Avisos'}
+              icono={noLeidos > 0 ? "notifications" : "notifications-outline"}
+              etiqueta={
+                noLeidos > 0 ? `Avisos, ${noLeidos} sin leer` : "Avisos"
+              }
               insignia={noLeidos}
-              onPress={() => router.push('/avisos')}
+              onPress={() => router.push("/avisos")}
             />
           ) : (
-            <Boton titulo="Entrar" variante="calSobreCesped" compacto icono="person-circle-outline" onPress={() => router.push('/login')} />
+            <Boton
+              titulo="Entrar"
+              variante="calSobreCesped"
+              compacto
+              icono="person-circle-outline"
+              onPress={() => router.push("/login")}
+            />
           )}
         </View>
       </View>
 
       <View style={estilos.saludo}>
         <Texto variante="titulo" peso="negrita" color={c.textoSobreCesped}>
-          {usuario ? `Hola, ${primerNombre(usuario.nombre)}` : 'Hola'}
+          {usuario ? `Hola, ${primerNombre(usuario.nombre)}` : "Hola"}
         </Texto>
         <Texto color={c.textoSobreCespedSuave}>
           {usuario
-            ? 'Tu próximo partido empieza acá.'
-            : 'Mirá qué hay libre. Para reservar, entrá con tu cuenta.'}
+            ? "Tu próximo partido empieza acá."
+            : "Mirá qué hay libre. Para reservar, entrá con tu cuenta."}
         </Texto>
       </View>
 
@@ -391,21 +540,33 @@ function Cabecera({ topInset }: { topInset: number }) {
 }
 
 function BotonCabecera({
-  icono, etiqueta, insignia = 0, onPress,
-}: { icono: 'map-outline' | 'notifications' | 'notifications-outline'; etiqueta: string; insignia?: number; onPress: () => void }) {
+  icono,
+  etiqueta,
+  insignia = 0,
+  onPress,
+}: {
+  icono: "map-outline" | "notifications" | "notifications-outline";
+  etiqueta: string;
+  insignia?: number;
+  onPress: () => void;
+}) {
   const { c } = useTema();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={etiqueta}
-      style={({ pressed }) => [estilos.botonCabecera, { borderColor: c.cal }, pressed && { opacity: 0.8 }]}
+      style={({ pressed }) => [
+        estilos.botonCabecera,
+        { borderColor: c.cal },
+        pressed && { opacity: 0.8 },
+      ]}
     >
       <Icono nombre={icono} color={c.textoSobreCesped} tamano={22} />
       {insignia > 0 && (
         <View style={[estilos.insignia, { backgroundColor: c.acento }]}>
           <Texto variante="chico" peso="negrita" color={c.textoSobreAcento}>
-            {insignia > 9 ? '9+' : insignia}
+            {insignia > 9 ? "9+" : insignia}
           </Texto>
         </View>
       )}
@@ -415,47 +576,92 @@ function BotonCabecera({
 
 const estilos = StyleSheet.create({
   flex: { flex: 1 },
-  accionesCabecera: { flexDirection: 'row', alignItems: 'center', gap: ESPACIADO.s },
+  accionesCabecera: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: ESPACIADO.s,
+  },
   botonCabecera: {
     width: TOQUE_MINIMO,
     height: TOQUE_MINIMO,
     borderRadius: RADIO.control,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   insignia: {
-    position: 'absolute',
+    position: "absolute",
     top: -6,
     right: -6,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cabecera: { paddingHorizontal: ESPACIADO.l, paddingBottom: ESPACIADO.xxl + ESPACIADO.s, overflow: 'hidden' },
-  filaCabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cabecera: {
+    paddingHorizontal: ESPACIADO.l,
+    paddingBottom: ESPACIADO.xxl + ESPACIADO.s,
+    overflow: "hidden",
+  },
+  filaCabecera: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   saludo: { marginTop: ESPACIADO.xl, gap: ESPACIADO.xs },
-  lineaMitad: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2 },
-  arcoCentral: { position: 'absolute', bottom: 0, alignSelf: 'center', height: 22, overflow: 'hidden' },
-  bloque: { paddingHorizontal: ESPACIADO.l, paddingTop: ESPACIADO.l, gap: ESPACIADO.l },
+  lineaMitad: { position: "absolute", left: 0, right: 0, bottom: 0, height: 2 },
+  arcoCentral: {
+    position: "absolute",
+    bottom: 0,
+    alignSelf: "center",
+    height: 22,
+    overflow: "hidden",
+  },
+  bloque: {
+    paddingHorizontal: ESPACIADO.l,
+    paddingTop: ESPACIADO.l,
+    gap: ESPACIADO.l,
+  },
   panel: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: ESPACIADO.m,
     padding: ESPACIADO.m,
     borderRadius: RADIO.tarjeta,
     borderWidth: 1,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   filtros: { gap: ESPACIADO.s },
   chips: { gap: ESPACIADO.s, paddingRight: ESPACIADO.l },
   separado: { marginTop: ESPACIADO.xs },
-  item: { position: 'relative', paddingHorizontal: ESPACIADO.l, paddingTop: ESPACIADO.m },
-  filaResultados: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  botonFavorito: { position: 'absolute', top: ESPACIADO.m + ESPACIADO.xs, left: ESPACIADO.l + ESPACIADO.xs, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', zIndex: 1, elevation: 2 },
+  item: {
+    position: "relative",
+    paddingHorizontal: ESPACIADO.l,
+    paddingTop: ESPACIADO.m,
+  },
+  filaResultados: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  botonFavorito: {
+    position: "absolute",
+    top: ESPACIADO.m + ESPACIADO.xs,
+    left: ESPACIADO.l + ESPACIADO.xs,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    elevation: 2,
+  },
   botonFavoritoPresionado: { opacity: 0.75, transform: [{ scale: 0.95 }] },
   favoritoDeshabilitado: { opacity: 0.5 },
-  centro: { alignItems: 'center', gap: ESPACIADO.m, paddingVertical: ESPACIADO.xxl },
+  centro: {
+    alignItems: "center",
+    gap: ESPACIADO.m,
+    paddingVertical: ESPACIADO.xxl,
+  },
 });

@@ -16,6 +16,7 @@ const ACCIONES: {
 }[] = [
   { titulo: 'Escanear ingreso', detalle: 'Leer el QR en la puerta y registrar la llegada.', icono: 'qr-code-outline', ruta: '/gestion/escanear' },
   { titulo: 'Agenda del día', detalle: 'Todos los espacios, quién viene y presentes o ausentes.', icono: 'today-outline', ruta: '/gestion/agenda' },
+  { titulo: 'Reservas', detalle: 'Ver las reservas de cada día y cancelarlas.', icono: 'list-outline', ruta: '/gestion/reservas' },
   { titulo: 'Bloqueos', detalle: 'Suspender turnos o días por lluvia o mantenimiento.', icono: 'rainy-outline', ruta: '/gestion/bloqueos' },
   { titulo: 'Reservas fijas', detalle: 'Grupos y clubes que tienen el turno todas las semanas.', icono: 'repeat-outline', ruta: '/gestion/fijas', soloAdmin: true },
   { titulo: 'Precios', detalle: 'Cambiar el precio por hora de cada espacio.', icono: 'pricetag-outline', ruta: '/gestion/precios', soloAdmin: true },

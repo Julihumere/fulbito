@@ -472,6 +472,19 @@ export function marcarAusente(token: string | null, reservaId: string): R<Reserv
   return exito(r);
 }
 
+/** Cancelación hecha por el encargado o el administrador: no cuenta como tardía. */
+export function cancelarComoPersonal(token: string | null, reservaId: string): R<Reserva> {
+  if (!esPersonal(usuarioDe(token))) return sinPermiso();
+  const r = db().reservas.find((x) => x.id === reservaId);
+  const t = r && turnoDe(r.turnoId);
+  if (!r || !t) return fallo('NO_ENCONTRADO', 'No encontramos esa reserva.');
+  if (r.estado !== 'confirmada') return fallo('NO_CANCELABLE', 'Esa reserva ya no está activa.');
+  if (turnoPasado(t, Date.now())) return fallo('NO_CANCELABLE', 'El turno ya empezó: no se puede cancelar.');
+  r.estado = 'cancelada';
+  guardar();
+  return exito(r);
+}
+
 export function agenda(token: string | null, fecha: string): R<EntradaAgenda[]> {
   if (!esPersonal(usuarioDe(token))) return sinPermiso();
   const { espacios: todos, reservas, fijas: todasFijas, bloqueos } = db();

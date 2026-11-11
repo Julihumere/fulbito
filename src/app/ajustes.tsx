@@ -1,34 +1,84 @@
-import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import Constants from 'expo-constants';
-import { Stack } from 'expo-router';
-import { aplicarApariencia, leerApariencia, type Apariencia } from '@/almacenamiento/apariencia';
-import { Boton } from '@/componentes/Boton';
-import { Chip } from '@/componentes/Chip';
-import { Texto } from '@/componentes/Texto';
-import { useAvisos } from '@/contexto/AvisosContexto';
-import { useReservas } from '@/contexto/ReservasContexto';
-import { useSesion } from '@/contexto/SesionContexto';
-import { usuarios as servicioUsuarios, USAR_MOCKS } from '@/servicios';
-import { ESPACIADO, RADIO, useTema } from '@/tema';
+import { useEffect, useState } from "react";
+import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
+import Constants from "expo-constants";
+import { Stack } from "expo-router";
+import {
+  aplicarApariencia,
+  leerApariencia,
+  type Apariencia,
+} from "@/almacenamiento/apariencia";
+import { Boton } from "@/componentes/Boton";
+import { Chip } from "@/componentes/Chip";
+import { Texto } from "@/componentes/Texto";
+import { useAvisos } from "@/contexto/AvisosContexto";
+import { useReservas } from "@/contexto/ReservasContexto";
+import { useSesion } from "@/contexto/SesionContexto";
+import {
+  pedirPermisoNotificaciones,
+  permisoDeNotificaciones,
+  registrarDispositivoPush,
+} from "@/notificaciones";
+import { usuarios as servicioUsuarios, USAR_MOCKS } from "@/servicios";
+import { ESPACIADO, RADIO, useTema } from "@/tema";
 
-const OPCIONES: { valor: Apariencia; texto: string; icono: 'sunny-outline' | 'moon-outline' | 'phone-portrait-outline' }[] = [
-  { valor: 'claro', texto: 'Claro', icono: 'sunny-outline' },
-  { valor: 'oscuro', texto: 'Oscuro', icono: 'moon-outline' },
-  { valor: 'sistema', texto: 'Sistema', icono: 'phone-portrait-outline' },
+const OPCIONES: {
+  valor: Apariencia;
+  texto: string;
+  icono: "sunny-outline" | "moon-outline" | "phone-portrait-outline";
+}[] = [
+  { valor: "claro", texto: "Claro", icono: "sunny-outline" },
+  { valor: "oscuro", texto: "Oscuro", icono: "moon-outline" },
+  { valor: "sistema", texto: "Sistema", icono: "phone-portrait-outline" },
 ];
 
 export default function Ajustes() {
   const { c } = useTema();
-  const [apariencia, setApariencia] = useState<Apariencia>('sistema');
+  const [apariencia, setApariencia] = useState<Apariencia>("sistema");
   const { refrescarPerfil } = useSesion();
   const reservas = useReservas();
   const avisos = useAvisos();
+  const [permiso, setPermiso] =
+    useState<Awaited<ReturnType<typeof permisoDeNotificaciones>>>(
+      "no-disponible",
+    );
+
+  useEffect(() => {
+    permisoDeNotificaciones().then(setPermiso);
+  }, []);
+
+  const [registro, setRegistro] = useState<string | null>(null);
+  const [registrando, setRegistrando] = useState(false);
+
+  async function registrarTelefono() {
+    setRegistrando(true);
+    const r = await registrarDispositivoPush();
+    setRegistro(
+      r.ok
+        ? "Teléfono registrado: ya podés recibir avisos del servidor."
+        : `No se pudo registrar: ${r.motivo}`,
+    );
+    setRegistrando(false);
+  }
+
+  async function activarNotificaciones() {
+    if (permiso === "denegado") {
+      await Linking.openSettings();
+      return;
+    }
+    await pedirPermisoNotificaciones();
+    const nuevo = await permisoDeNotificaciones();
+    setPermiso(nuevo);
+    if (nuevo === "concedido") await registrarTelefono();
+  }
 
   useEffect(() => {
     let vigente = true;
-    leerApariencia().then((valor) => { if (vigente) setApariencia(valor); });
-    return () => { vigente = false; };
+    leerApariencia().then((valor) => {
+      if (vigente) setApariencia(valor);
+    });
+    return () => {
+      vigente = false;
+    };
   }, []);
 
   function elegir(valor: Apariencia) {
@@ -37,51 +87,130 @@ export default function Ajustes() {
   }
 
   function reiniciar() {
-    Alert.alert('Reiniciar datos de prueba', 'Se borran las reservas, bloqueos y fijas que cargaste.', [
-      { text: 'Volver', style: 'cancel' },
-      {
-        text: 'Reiniciar',
-        style: 'destructive',
-        onPress: async () => {
-          servicioUsuarios.reiniciarDatosDePrueba();
-          await Promise.all([reservas.recargar(), avisos.recargar(), refrescarPerfil()]);
+    Alert.alert(
+      "Reiniciar datos de prueba",
+      "Se borran las reservas, bloqueos y fijas que cargaste.",
+      [
+        { text: "Volver", style: "cancel" },
+        {
+          text: "Reiniciar",
+          style: "destructive",
+          onPress: async () => {
+            servicioUsuarios.reiniciarDatosDePrueba();
+            await Promise.all([
+              reservas.recargar(),
+              avisos.recargar(),
+              refrescarPerfil(),
+            ]);
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   return (
-    <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={estilos.pantalla}>
-      <Stack.Screen options={{ title: 'Ajustes' }} />
+    <ScrollView
+      style={{ backgroundColor: c.fondo }}
+      contentContainerStyle={estilos.pantalla}
+    >
+      <Stack.Screen options={{ title: "Ajustes" }} />
 
-      <View style={[estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+      <View
+        style={[
+          estilos.tarjeta,
+          { backgroundColor: c.superficie, borderColor: c.borde },
+        ]}
+      >
         <Texto peso="seminegrita">Apariencia</Texto>
         <View style={estilos.chips} accessibilityRole="radiogroup">
           {OPCIONES.map((o) => (
-            <Chip key={o.valor} texto={o.texto} icono={o.icono} activo={apariencia === o.valor} onPress={() => elegir(o.valor)} />
+            <Chip
+              key={o.valor}
+              texto={o.texto}
+              icono={o.icono}
+              activo={apariencia === o.valor}
+              onPress={() => elegir(o.valor)}
+            />
           ))}
         </View>
         <Texto variante="chico" color={c.textoSuave}>
-          {apariencia === 'sistema'
-            ? 'Sigue el modo claro u oscuro del teléfono.'
+          {apariencia === "sistema"
+            ? "Sigue el modo claro u oscuro del teléfono."
             : `Siempre en modo ${apariencia}, sin importar el teléfono.`}
         </Texto>
       </View>
 
-      <View style={[estilos.fila, estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+      {permiso !== "no-disponible" && (
+        <View
+          style={[
+            estilos.tarjeta,
+            { backgroundColor: c.superficie, borderColor: c.borde },
+          ]}
+        >
+          <Texto peso="seminegrita">Notificaciones</Texto>
+          <Texto variante="chico" color={c.textoSuave}>
+            {permiso === "concedido"
+              ? "Activadas: te avisamos antes de tu turno y si te cancelan una reserva."
+              : permiso === "denegado"
+                ? "Las bloqueaste en el teléfono. Activalas desde los ajustes del sistema para recibir recordatorios y avisos."
+                : "Activalas para recibir un recordatorio antes de tu turno y un aviso si te cancelan una reserva."}
+          </Texto>
+          {registro && (
+            <Texto variante="chico" color={c.textoSuave}>
+              {registro}
+            </Texto>
+          )}
+          {permiso !== "concedido" && (
+            <Boton
+              titulo={
+                permiso === "denegado"
+                  ? "Abrir ajustes del teléfono"
+                  : "Activar notificaciones"
+              }
+              variante="secundario"
+              compacto
+              icono="notifications-outline"
+              onPress={activarNotificaciones}
+            />
+          )}
+        </View>
+      )}
+
+      <View
+        style={[
+          estilos.fila,
+          estilos.tarjeta,
+          { backgroundColor: c.superficie, borderColor: c.borde },
+        ]}
+      >
         <Texto variante="etiqueta" color={c.textoSuave} style={estilos.clave}>
           Versión
         </Texto>
-        <Texto variante="etiqueta">{Constants.expoConfig?.version ?? '—'}</Texto>
+        <Texto variante="etiqueta">
+          {Constants.expoConfig?.version ?? "—"}
+        </Texto>
       </View>
 
       {USAR_MOCKS && (
-        <View style={[estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>
+        <View
+          style={[
+            estilos.tarjeta,
+            { backgroundColor: c.superficie, borderColor: c.borde },
+          ]}
+        >
           <Texto peso="seminegrita">Datos de prueba</Texto>
           <Texto variante="chico" color={c.textoSuave}>
-            La app usa datos inventados hasta que esté la API. Reiniciarlos vuelve a cargar las reservas, bloqueos y fijas de ejemplo con fechas de hoy.
+            La app usa datos inventados hasta que esté la API. Reiniciarlos
+            vuelve a cargar las reservas, bloqueos y fijas de ejemplo con fechas
+            de hoy.
           </Texto>
-          <Boton titulo="Reiniciar datos de prueba" variante="secundario" compacto icono="refresh-outline" onPress={reiniciar} />
+          <Boton
+            titulo="Reiniciar datos de prueba"
+            variante="secundario"
+            compacto
+            icono="refresh-outline"
+            onPress={reiniciar}
+          />
         </View>
       )}
     </ScrollView>
@@ -90,8 +219,13 @@ export default function Ajustes() {
 
 const estilos = StyleSheet.create({
   pantalla: { padding: ESPACIADO.l, gap: ESPACIADO.l },
-  tarjeta: { borderRadius: RADIO.tarjeta, borderWidth: 1, padding: ESPACIADO.m, gap: ESPACIADO.m },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: ESPACIADO.s },
-  fila: { flexDirection: 'row', alignItems: 'center' },
+  tarjeta: {
+    borderRadius: RADIO.tarjeta,
+    borderWidth: 1,
+    padding: ESPACIADO.m,
+    gap: ESPACIADO.m,
+  },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: ESPACIADO.s },
+  fila: { flexDirection: "row", alignItems: "center" },
   clave: { width: 100 },
 });

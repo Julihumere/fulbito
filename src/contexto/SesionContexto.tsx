@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform } from 'react-native';
 import { borrarDeCache, CLAVES, guardarEnCache, leerDeCache } from '@/almacenamiento/cache';
 import { borrarToken, guardarToken, leerToken } from '@/almacenamiento/token';
-import { borrarRecordatorios, obtenerTokenPush, olvidarTokenPush, tokenPushActual } from '@/notificaciones';
+import { borrarRecordatorios, olvidarTokenPush, registrarDispositivoPush, tokenPushActual } from '@/notificaciones';
 import { auth, dispositivos, ErrorApi } from '@/servicios';
 import type { CredencialesIngreso, DatosRegistro, Usuario } from '@/tipos';
 
@@ -33,16 +33,8 @@ interface ValorSesion {
 
 const Contexto = createContext<ValorSesion | null>(null);
 
-/** Best-effort: la API puede responder 501 mientras falte el lado servidor. */
-async function registrarPush(): Promise<void> {
-  const token = await obtenerTokenPush();
-  if (!token || Platform.OS === 'web') return;
-  try {
-    await dispositivos.registrarDispositivo(token, Platform.OS === 'ios' ? 'ios' : 'android');
-  } catch {
-    // Sin push configurado, la app sigue funcionando con notificaciones locales.
-  }
-}
+/** Best-effort: sin permiso, sin token o sin conexión la app sigue con notificaciones locales. */
+const registrarPush = registrarDispositivoPush;
 
 async function borrarPush(): Promise<void> {
   if (!tokenPushActual || Platform.OS === 'web') return;

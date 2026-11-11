@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "ar.gob.villaguay.fulbito"
+      "package": "ar.gob.villaguay.fulbito",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -74,10 +75,25 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/android-icon-monochrome.png",
           "color": "#2E7D32"
         }
       ],
-      "react-native-maps",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyCY6DjKL7A9mxhqVyeB_nzFTbCNMTZukoo"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
+          }
+        }
+      ],
       [
         "expo-navigation-bar",
         {

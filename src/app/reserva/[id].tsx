@@ -4,7 +4,7 @@
  * cancha, donde la señal es mala.
  */
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
@@ -22,7 +22,7 @@ import type { EstadoReserva } from '@/tipos';
 import { fechaCorta, fechaDeIso, fechaRelativa, horaDeIso, rangoHorario } from '@/utilidades/fechas';
 import { formatearPrecio } from '@/utilidades/formato';
 import { turnoPasado } from '@/utilidades/grilla';
-import { HORAS_CANCELACION, HORAS_RECORDATORIO } from '@/utilidades/reglas';
+import { HORAS_CANCELACION, HORAS_RECORDATORIO, WHATSAPP_DIRECCION } from '@/utilidades/reglas';
 
 const NOMBRE_ESTADO: Record<EstadoReserva, string> = {
   confirmada: 'Confirmada',
@@ -35,7 +35,7 @@ export default function MiReserva() {
   const { c } = useTema();
   const { width } = useWindowDimensions();
   const { id, recien } = useLocalSearchParams<{ id: string; recien?: string }>();
-  const { refrescarPerfil } = useSesion();
+  const { usuario, refrescarPerfil } = useSesion();
   const misReservas = useReservas();
   const catalogo = useCatalogo();
   const [cancelando, setCancelando] = useState(false);
@@ -69,6 +69,16 @@ export default function MiReserva() {
       { text: 'Volver', style: 'cancel' },
       { text: 'Cancelar reserva', style: 'destructive', onPress: cancelar },
     ]);
+  }
+
+  /** Fuera de plazo el jugador no puede cancelar solo: se lo pide a la Dirección por WhatsApp. */
+  function avisarPorWhatsapp() {
+    const mensaje =
+      `Hola, soy ${usuario?.nombre ?? 'jugador'}. Necesito cancelar mi reserva de ${espacio?.nombre ?? 'la cancha'} ` +
+      `del ${fechaCorta(turno.fecha)} a las ${turno.inicio} (código ${reserva.codigoQr}). Ya no puedo hacerlo desde la app.`;
+    Linking.openURL(`https://wa.me/${WHATSAPP_DIRECCION}?text=${encodeURIComponent(mensaje)}`).catch(() => {
+      setResultado({ tipo: 'error', titulo: 'No pudimos abrir WhatsApp', detalle: 'Probá escribirle a la Dirección de Deportes directamente.' });
+    });
   }
 
   async function cancelar() {
@@ -176,6 +186,9 @@ export default function MiReserva() {
           titulo="Fuera de plazo para cancelar"
           detalle={`Faltan menos de ${HORAS_CANCELACION} horas. Avisale al encargado para liberar el turno.`}
         />
+      )}
+      {vigente && !sinAviso && WHATSAPP_DIRECCION !== '' && (
+        <Boton titulo="Avisar por WhatsApp" variante="secundario" icono="logo-whatsapp" onPress={avisarPorWhatsapp} />
       )}
     </ScrollView>
   );

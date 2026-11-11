@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { ESPACIADO, RADIO, useTema } from '@/tema';
 import type { Deporte, Espacio } from '@/tipos';
 import { formatearPrecio } from '@/utilidades/formato';
@@ -40,7 +40,8 @@ export function TarjetaEspacio({ espacio, deporte, onPress, onTurnos }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      // En la web un <button> no puede contener a otro (el de «Turnos»).
+      accessibilityRole={onTurnos && Platform.OS === 'web' ? undefined : 'button'}
       accessibilityLabel={descripcion}
       accessibilityHint="Abre la ficha del espacio"
       style={({ pressed }) => [

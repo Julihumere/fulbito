@@ -9,6 +9,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_USAR_MOCKS": "false",
+        "EXPO_PUBLIC_WHATSAPP_DIRECCION": "5493456267235",
         "EXPO_PUBLIC_API_URL": "https://fulbito-api.taild5debe.ts.net:8443"
       }
     },
@@ -16,6 +17,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_USAR_MOCKS": "false",
+        "EXPO_PUBLIC_WHATSAPP_DIRECCION": "5493456267235",
         "EXPO_PUBLIC_API_URL": "https://fulbito-api.taild5debe.ts.net:8443"
       }
     },
@@ -23,6 +25,7 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_USAR_MOCKS": "false",
+        "EXPO_PUBLIC_WHATSAPP_DIRECCION": "5493456267235",
         "EXPO_PUBLIC_API_URL": "https://fulbito-api.taild5debe.ts.net:8443"
       }
     }

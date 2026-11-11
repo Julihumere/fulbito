@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Clave privada de la cuenta de servicio de Firebase: nunca al repo
+*-firebase-adminsdk-*.json
+
+# Clave de google
+google-services.json
+
+.env

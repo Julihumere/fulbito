@@ -17,7 +17,7 @@ import type {
   Turno,
   Usuario,
 } from '@/tipos';
-import { fijaOcupa } from '@/utilidades/grilla';
+import { fijaOcupa, finDeTurno, leerIdTurno } from '@/utilidades/grilla';
 import { pedir, pedirLista, pedirVacio, simular, USAR_MOCKS } from './cliente';
 import { listarFijas, listarReservasDelDia, obtenerReserva, obtenerTurno } from './reservas';
 
@@ -76,6 +76,50 @@ export async function agendaDelDia(fecha: string): Promise<EntradaAgenda[]> {
   );
 }
 
+/** Una reserva confirmada con lo justo para mostrarla y cancelarla. */
+export interface ReservaCancelable {
+  reserva: Reserva;
+  espacioId: string;
+  fecha: string;
+  inicio: string;
+  fin: string;
+  titular: Titular | null;
+}
+
+/**
+ * Reservas confirmadas de un día. En la API pide sólo GET /reservas (más liviano
+ * que la agenda completa) y completa el titular en paralelo.
+ */
+export async function reservasCancelables(fecha: string): Promise<ReservaCancelable[]> {
+  if (USAR_MOCKS) {
+    const agenda = (await simular((token) => servidor.agenda(token, fecha))).datos;
+    return agenda.flatMap((x) =>
+      x.reserva?.estado === 'confirmada'
+        ? [{ reserva: x.reserva, espacioId: x.turno.espacioId, fecha: x.turno.fecha, inicio: x.turno.inicio, fin: x.turno.fin, titular: x.titular }]
+        : [],
+    );
+  }
+
+  const reservas = await pedirLista<Reserva>('/reservas', { fecha, estado: 'confirmada' });
+  const filas = await Promise.all(
+    reservas
+      .filter((r) => r.estado === 'confirmada')
+      .map(async (reserva): Promise<ReservaCancelable | null> => {
+        const partes = leerIdTurno(reserva.turnoId);
+        if (!partes) return null;
+        return {
+          reserva,
+          espacioId: reserva.espacioId,
+          fecha: partes.fecha,
+          inicio: partes.inicio,
+          fin: finDeTurno(partes.inicio),
+          titular: await obtenerTitular(reserva.usuarioId),
+        };
+      }),
+  );
+  return filas.filter((f): f is ReservaCancelable => f !== null);
+}
+
 /** POST /ingresos — devuelve la Reserva; se completa con turno y titular. */
 export async function validarIngreso(codigoQr: string, espacioId: string): Promise<IngresoRegistrado> {
   if (USAR_MOCKS) {
@@ -122,6 +166,19 @@ export async function marcarPresente(reservaId: string): Promise<Reserva> {
       metodo: 'POST',
       cuerpo: { codigoQr: reserva.codigoQr, espacioId: reserva.espacioId },
     })
+  ).datos;
+}
+
+/**
+ * POST /reservas/:id/cancelacion con el token del personal: libera el turno de
+ * cualquier jugador y no le suma cancelación tardía.
+ */
+export async function cancelarReserva(reservaId: string): Promise<Reserva> {
+  if (USAR_MOCKS) {
+    return (await simular((token) => servidor.cancelarComoPersonal(token, reservaId))).datos;
+  }
+  return (
+    await pedir<Reserva>(`/reservas/${encodeURIComponent(reservaId)}/cancelacion`, { metodo: 'POST' })
   ).datos;
 }
 

@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { CLAVES, leerDeCache } from '@/almacenamiento/cache';
 import { guardarFavoritos, leerFavoritos } from '@/almacenamiento/favoritos';
-import { borrarMedios, copiarFotoElegida, estadoGuardado, guardarMedios, uriLocal } from '@/almacenamiento/medios';
+import { copiarFotoElegida, guardarMedios, uriLocal } from '@/almacenamiento/medios';
 import { Aviso } from '@/componentes/Aviso';
 import { Boton } from '@/componentes/Boton';
 import { GaleriaFotos } from '@/componentes/GaleriaFotos';
@@ -34,11 +34,10 @@ export default function FichaEspacio() {
   const [error, setError] = useState<ErrorApi | null>(null);
   const [desdeCopia, setDesdeCopia] = useState(false);
   const [intento, setIntento] = useState(0);
-  const [guardando, setGuardando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: 'aviso' | 'error'; titulo: string; detalle?: string } | null>(null);
-  // Cuántas fotos y videos de este espacio hay guardados en el teléfono.
-  const [medios, setMedios] = useState({ guardados: 0, total: 0 });
+  // Sube cuando termina de bajar archivos al teléfono, para que la ficha pase a usar las copias.
+  const [, setCopias] = useState(0);
   const [favoritosInvitado, setFavoritosInvitado] = useState<string[]>([]);
 
   useEffect(() => {
@@ -56,7 +55,6 @@ export default function FichaEspacio() {
         if (cancelado) return;
         setEspacio(e);
         setDeporte(ds.find((d) => d.id === e.deporteId) ?? null);
-        setMedios(estadoGuardado(e));
         setDesdeCopia(false);
       })
       .catch(async (e) => {
@@ -67,7 +65,6 @@ export default function FichaEspacio() {
         if (copia) {
           setEspacio(copia);
           setDeporte(ds?.valor.find((d) => d.id === copia.deporteId) ?? null);
-          setMedios(estadoGuardado(copia));
           setDesdeCopia(true);
         } else {
           setError(aErrorApi(e));
@@ -77,6 +74,21 @@ export default function FichaEspacio() {
       cancelado = true;
     };
   }, [id, intento]);
+
+  // Fotos y video se guardan solos al abrir la ficha con señal, para verlos después sin datos.
+  useEffect(() => {
+    // expo-file-system no existe en web.
+    if (!espacio || desdeCopia || Platform.OS === 'web') return;
+    let vigente = true;
+    guardarMedios(espacio)
+      .then((r) => {
+        if (vigente && r.guardados > 0) setCopias((n) => n + 1);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [espacio, desdeCopia]);
 
   if (error) {
     return (
@@ -133,27 +145,6 @@ export default function FichaEspacio() {
     }
   }
 
-  async function guardarParaSinDatos() {
-    if (!espacio) return;
-    setGuardando(true);
-    setMensaje(null);
-    const r = await guardarMedios(espacio);
-    setGuardando(false);
-    setMedios(estadoGuardado(espacio));
-    setMensaje(
-      r.fallidos === 0
-        ? { tipo: 'aviso', titulo: 'Guardado en el teléfono', detalle: 'Las fotos y el video se ven aunque no tengas datos.' }
-        : { tipo: 'error', titulo: `No se pudieron bajar ${r.fallidos} archivos`, detalle: 'Revisá la conexión y probá de nuevo.' },
-    );
-  }
-
-  function borrarGuardados() {
-    if (!espacio) return;
-    borrarMedios(id);
-    setMedios(estadoGuardado(espacio));
-    setMensaje({ tipo: 'aviso', titulo: 'Archivos borrados del teléfono' });
-  }
-
   async function subirFotoEstado() {
     setMensaje(null);
     const elegida = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [16, 9] });
@@ -164,7 +155,6 @@ export default function FichaEspacio() {
       const local = Platform.OS === 'web' ? elegidaUri : copiarFotoElegida(elegidaUri);
       const actualizado = await servicioEspacios.agregarFoto(id, local);
       setEspacio(actualizado);
-      setMedios(estadoGuardado(actualizado));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setMensaje({ tipo: 'aviso', titulo: 'Foto agregada', detalle: 'Es la primera de la galería.' });
     } catch (e) {
@@ -245,22 +235,6 @@ export default function FichaEspacio() {
           <Texto color={c.textoSuave}>Este espacio todavía no tiene video.</Texto>
         )}
       </View>
-
-      {medios.total > 0 && (
-        <View style={[estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>
-          <Texto peso="seminegrita">Ver sin datos</Texto>
-          <Texto variante="etiqueta" color={c.textoSuave}>
-            {medios.guardados === medios.total
-              ? 'Las fotos y el video de este espacio están guardados en el teléfono.'
-              : `Guardá ${medios.total === 1 ? 'el archivo' : `los ${medios.total} archivos`} de este espacio para verlos sin conexión. Conviene hacerlo con wifi.`}
-          </Texto>
-          {medios.guardados === medios.total ? (
-            <Boton titulo="Borrar del teléfono" variante="secundario" compacto icono="trash-outline" onPress={borrarGuardados} />
-          ) : (
-            <Boton titulo="Guardar en el teléfono" variante="secundario" compacto icono="download-outline" onPress={guardarParaSinDatos} cargando={guardando} />
-          )}
-        </View>
-      )}
 
       {esPersonal && (
         <View style={[estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>

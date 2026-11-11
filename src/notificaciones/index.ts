@@ -12,7 +12,9 @@
  */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { CLAVES, guardarEnCache, leerDeCache } from '@/almacenamiento/cache';
+import { dispositivos } from '@/servicios';
 import type { Espacio, Notificacion, Reserva, Turno } from '@/tipos';
 import { horaCorta, instante } from '@/utilidades/fechas';
 import { HORAS_RECORDATORIO } from '@/utilidades/reglas';
@@ -54,16 +56,63 @@ export function limpiarUltimaRespuesta(): void {
 export let tokenPushActual: string | null = null;
 
 export async function obtenerTokenPush(): Promise<string | null> {
-  if (Platform.OS === 'web' || !Notifications) return null;
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
-  if (!projectId) return null;
   try {
-    const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
-    tokenPushActual = data;
-    return data;
+    return await pedirTokenPush();
   } catch {
     // En Expo Go Android el push remoto no está disponible; se sigue sin token.
     return null;
+  }
+}
+
+/** Igual que obtenerTokenPush, pero explica el motivo cuando no se puede. */
+async function pedirTokenPush(): Promise<string> {
+  // El push remoto sólo anda en un teléfono real (o emulador con Google Play).
+  if (Platform.OS === 'web' || !Notifications) throw new Error('Este dispositivo no admite notificaciones.');
+  if (!Device.isDevice) throw new Error('Las push sólo andan en un teléfono real.');
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+  if (!projectId) throw new Error('Falta el projectId de EAS en la app.');
+  const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
+  tokenPushActual = data;
+  return data;
+}
+
+export type ResultadoRegistroPush = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * Anota el teléfono en el servidor para que le lleguen las push (p. ej. cuando el
+ * personal le cancela una reserva). Dice por qué no pudo, para mostrarlo en Ajustes.
+ */
+export async function registrarDispositivoPush(): Promise<ResultadoRegistroPush> {
+  if (Platform.OS === 'web' || !Notifications) return { ok: false, motivo: 'Este dispositivo no admite notificaciones.' };
+  try {
+    const permiso = await Notifications.getPermissionsAsync();
+    if (!permiso.granted) return { ok: false, motivo: 'Falta el permiso de notificaciones.' };
+    const token = await pedirTokenPush();
+    await dispositivos.registrarDispositivo(token, Platform.OS === 'ios' ? 'ios' : 'android');
+    return { ok: true };
+  } catch (e) {
+    // Sin push configurado, la app sigue con las notificaciones locales.
+    return { ok: false, motivo: e instanceof Error ? e.message : 'No se pudo registrar el teléfono.' };
+  }
+}
+
+/** Avisa cuando llega una notificación con la app abierta. Devuelve cómo dejar de escuchar. */
+export function escucharNotificaciones(alRecibir: (datos: Record<string, unknown>) => void): () => void {
+  if (!Notifications) return () => {};
+  const suscripcion = Notifications.addNotificationReceivedListener((n) => {
+    alRecibir((n.request.content.data ?? {}) as Record<string, unknown>);
+  });
+  return () => suscripcion.remove();
+}
+
+export async function permisoDeNotificaciones(): Promise<'concedido' | 'denegado' | 'sin-pedir' | 'no-disponible'> {
+  if (!Notifications) return 'no-disponible';
+  try {
+    const p = await Notifications.getPermissionsAsync();
+    if (p.granted) return 'concedido';
+    return p.canAskAgain ? 'sin-pedir' : 'denegado';
+  } catch {
+    return 'no-disponible';
   }
 }
 
@@ -99,9 +148,14 @@ export async function pedirPermisoNotificaciones(): Promise<boolean> {
   if (!Notifications) return false;
   try {
     const actual = await Notifications.getPermissionsAsync();
-    if (actual.granted) return true;
+    if (actual.granted) {
+      void registrarDispositivoPush();
+      return true;
+    }
     if (!actual.canAskAgain) return false;
     const pedido = await Notifications.requestPermissionsAsync();
+    // Recién con el permiso se puede pedir el token para las push del servidor.
+    if (pedido.granted) void registrarDispositivoPush();
     return pedido.granted;
   } catch {
     return false;
