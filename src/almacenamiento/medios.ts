@@ -80,11 +80,24 @@ export function borrarMedios(espacioId: string): void {
  * Copia una foto elegida de la galería a la carpeta de la app: la que deja
  * el selector está en caché y el sistema la puede borrar.
  */
+let contadorFotos = 0;
+
 export function copiarFotoElegida(uri: string): string {
   const dir = new Directory(Paths.document, 'fotos-estado');
+
   dir.create({ idempotent: true, intermediates: true });
+
   const origen = new File(uri);
-  const destino = new File(dir, `estado-${Date.now()}${origen.extension || '.jpg'}`);
+
+  contadorFotos += 1;
+
+  const nombre = `estado-${Date.now()}-${contadorFotos}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}${origen.extension || '.jpg'}`;
+
+  const destino = new File(dir, nombre);
+
   origen.copy(destino);
+
   return destino.uri;
 }

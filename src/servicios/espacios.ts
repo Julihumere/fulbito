@@ -41,24 +41,40 @@ export async function cambiarPrecio(id: string, precioPorHora: number): Promise<
  * La API todavía no tiene un endpoint para asociarla a un espacio: se agrega
  * a la ficha y a la copia local, y queda visible en esta sesión/dispositivo.
  */
-export async function agregarFoto(id: string, uriLocal: string): Promise<Espacio> {
+export async function agregarFoto(
+  id: string,
+  uriLocal: string,
+  espacioAnterior?: Espacio
+): Promise<Espacio> {
   if (USAR_MOCKS) {
-    const r = await simular((token) => servidor.agregarFoto(token, id, uriLocal));
+    const r = await simular((token) =>
+      servidor.agregarFoto(token, id, uriLocal)
+    );
     return r.datos;
   }
 
   const subido = await subirArchivo(uriLocal);
-  const espacio = await obtenerEspacio(id);
+
+  const espacio = espacioAnterior ?? await obtenerEspacio(id);
+
   const actualizado: Espacio = {
     ...espacio,
-    imagenes: [subido.url, ...espacio.imagenes.filter((url) => url !== subido.url)],
+    imagenes: [
+      subido.url,
+      ...espacio.imagenes.filter((url) => url !== subido.url),
+    ],
   };
 
-  // La API no persiste la asociación; al menos la guardamos en la copia local.
+  // La API todavía no guarda la asociación entre la foto y la cancha.
   const copia = await leerDeCache<Espacio[]>(CLAVES.espacios);
+
   if (copia) {
-    const espacios = copia.valor.map((e) => (e.id === actualizado.id ? actualizado : e));
+    const espacios = copia.valor.map((e) =>
+      e.id === actualizado.id ? actualizado : e
+    );
+
     await guardarEnCache(CLAVES.espacios, espacios);
   }
+
   return actualizado;
 }
