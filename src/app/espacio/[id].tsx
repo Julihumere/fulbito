@@ -146,71 +146,84 @@ export default function FichaEspacio() {
   }
 
   
-async function subirFotoEstado() {
-  setMensaje(null);
 
-  try {
-    const elegida = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-    });
+  async function subirFotoEstado() {
+    setMensaje(null);
 
-    if (elegida.canceled || elegida.assets.length === 0) {
-      return;
-    }
+    try {
+      const elegida = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
+      });
 
-    setSubiendo(true);
-
-    let actualizado = espacio;
-    let exitosas = 0;
-    let fallidas = 0;
-
-    for (const foto of elegida.assets) {
-      try {
-        const local =
-          Platform.OS === 'web'
-            ? foto.uri
-            : copiarFotoElegida(foto.uri);
-
-        actualizado = await servicioEspacios.agregarFoto(
-          id,
-          local,
-          actualizado ?? undefined
-        );
-
-        setEspacio(actualizado);
-        exitosas += 1;
-      } catch {
-        fallidas += 1;
+      if (elegida.canceled || elegida.assets.length === 0) {
+        return;
       }
-    }
 
-    if (exitosas > 0) {
-      Haptics.notificationAsync(
-        Haptics.NotificationFeedbackType.Success
-      );
-    }
+      setSubiendo(true);
 
-    setMensaje({
-      tipo: fallidas > 0 ? 'error' : 'aviso',
-      titulo:
-        fallidas === 0
-          ? 'Fotografías agregadas'
-          : 'Carga parcialmente completada',
-      detalle: `${exitosas} foto(s) agregada(s). ${fallidas} fallida(s).`,
-    });
-  } catch (e) {
-    setMensaje({
-      tipo: 'error',
-      titulo: 'No se pudieron seleccionar las fotografías',
-      detalle: aErrorApi(e).message,
-    });
-  } finally {
-    setSubiendo(false);
+      let actualizado = espacio;
+      let exitosas = 0;
+      let fallidas = 0;
+      let primerError: string | null = null;
+
+      for (const foto of elegida.assets) {
+        try {
+          const local =
+            Platform.OS === 'web'
+              ? foto.uri
+              : copiarFotoElegida(foto.uri);
+
+          actualizado = await servicioEspacios.agregarFoto(
+            id,
+            local,
+            actualizado ?? undefined
+          );
+
+          setEspacio(actualizado);
+          exitosas += 1;
+        } catch (e) {
+          fallidas += 1;
+
+          const detalleError =
+            e instanceof Error ? e.message : String(e);
+
+          console.error('Error al agregar fotografía:', e);
+
+          if (primerError === null) {
+            primerError = detalleError;
+          }
+        }
+      }
+
+      if (exitosas > 0) {
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        );
+      }
+
+      setMensaje({
+        tipo: fallidas > 0 ? 'error' : 'aviso',
+        titulo:
+          fallidas === 0
+            ? 'Fotografías agregadas'
+            : 'Carga parcialmente completada',
+        detalle:
+          `${exitosas} foto(s) agregada(s). ${fallidas} fallida(s).` +
+          (primerError ? ` Error: ${primerError}` : ''),
+      });
+    } catch (e) {
+      setMensaje({
+        tipo: 'error',
+        titulo: 'No se pudieron seleccionar las fotografías',
+        detalle: aErrorApi(e).message,
+      });
+    } finally {
+      setSubiendo(false);
+    }
   }
-}
 
 
   const datos: [string, string][] = [
