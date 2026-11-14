@@ -169,7 +169,9 @@ export default function FichaEspacio() {
       let fallidas = 0;
       let primerError: string | null = null;
 
-      for (const foto of elegida.assets) {
+      // La API pone primera la última foto que se asocia. Se sube al revés
+      // para que la primera de la selección quede primera en la galería.
+      for (const foto of [...elegida.assets].reverse()) {
         try {
           const local =
             Platform.OS === 'web'
