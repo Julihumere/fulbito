@@ -165,9 +165,11 @@ export default function FichaEspacio() {
       setSubiendo(true);
 
       let actualizado = espacio;
-      let exitosas = 0;
+      let subidas = 0;
+      let locales = 0;
       let fallidas = 0;
       let primerError: string | null = null;
+      let primerMotivoLocal: string | null = null;
 
       // La API pone primera la última foto que se asocia. Se sube al revés
       // para que la primera de la selección quede primera en la galería.
@@ -178,14 +180,23 @@ export default function FichaEspacio() {
               ? foto.uri
               : copiarFotoElegida(foto.uri);
 
-          actualizado = await servicioEspacios.agregarFoto(
+          const resultado = await servicioEspacios.agregarFoto(
             id,
             local,
             actualizado ?? undefined
           );
 
+          actualizado = resultado.espacio;
           setEspacio(actualizado);
-          exitosas += 1;
+
+          if (resultado.subida) {
+            subidas += 1;
+          } else {
+            locales += 1;
+            if (primerMotivoLocal === null) {
+              primerMotivoLocal = resultado.motivo ?? null;
+            }
+          }
         } catch (e) {
           fallidas += 1;
 
@@ -200,21 +211,31 @@ export default function FichaEspacio() {
         }
       }
 
-      if (exitosas > 0) {
+      const agregadas = subidas + locales;
+
+      if (agregadas > 0) {
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success
         );
       }
 
+      const hayProblema = fallidas > 0 || locales > 0;
+
       setMensaje({
-        tipo: fallidas > 0 ? 'error' : 'aviso',
+        tipo: hayProblema ? 'error' : 'aviso',
         titulo:
-          fallidas === 0
+          !hayProblema
             ? 'Fotografías agregadas'
-            : 'Carga parcialmente completada',
+            : subidas === 0 && locales > 0
+              ? 'Guardada solo en el teléfono'
+              : 'Carga parcialmente completada',
         detalle:
-          `${exitosas} foto(s) agregada(s). ${fallidas} fallida(s).` +
-          (primerError ? ` Error: ${primerError}` : ''),
+          locales > 0
+            ? `${subidas} subida(s) al servidor, ${locales} guardada(s) solo en el teléfono, ${fallidas} fallida(s).` +
+              (primerMotivoLocal ? ` ${primerMotivoLocal}` : '') +
+              (primerError ? ` Error: ${primerError}` : '')
+            : `${agregadas} foto(s) agregada(s). ${fallidas} fallida(s).` +
+              (primerError ? ` Error: ${primerError}` : ''),
       });
     } catch (e) {
       setMensaje({

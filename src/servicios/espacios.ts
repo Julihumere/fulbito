@@ -65,24 +65,36 @@ export async function cambiarPrecio(
   return r.datos;
 }
 
+export interface ResultadoFoto {
+  espacio: Espacio;
+  /** true si la foto llegó al servidor; false si quedó solo en el teléfono. */
+  subida: boolean;
+  /** Por qué quedó local, para mostrarlo en la ficha. */
+  motivo?: string;
+}
+
 /**
  * Guarda una copia local de la foto y la sube a la API para asociarla al
  * espacio con POST /espacios/:id/imagenes. Así queda guardada en el servidor
  * y se ve en cualquier teléfono.
  *
  * Si la API es vieja o no hay red, la copia local queda igual y la ficha
- * sigue mostrando la foto.
+ * sigue mostrando la foto, pero se avisa que no se subió.
  */
 export async function agregarFoto(
   id: string,
   uriLocal: string,
   espacioAnterior?: Espacio
-): Promise<Espacio> {
+): Promise<ResultadoFoto> {
   if (USAR_MOCKS) {
     const r = await simular((token) =>
       servidor.agregarFoto(token, id, uriLocal)
     );
-    return r.datos;
+    return {
+      espacio: r.datos,
+      subida: false,
+      motivo: 'Modo de prueba: la foto queda solo en este teléfono.',
+    };
   }
 
   const fotos = await leerFotosLocales();
@@ -122,7 +134,10 @@ export async function agregarFoto(
       [claveEspacio]: conApi,
     });
 
-    return combinarFotosLocales(r.datos);
+    return {
+      espacio: await combinarFotosLocales(r.datos),
+      subida: true,
+    };
   } catch (e) {
     const error = e instanceof ErrorApi ? e : null;
     const apiViejaOSinRed =
@@ -134,13 +149,20 @@ export async function agregarFoto(
     const espacio = espacioAnterior ?? await obtenerEspacio(id);
 
     return {
-      ...espacio,
-      imagenes: [
-        ...nuevasFotos,
-        ...espacio.imagenes.filter(
-          (url) => !nuevasFotos.includes(url)
-        ),
-      ],
+      espacio: {
+        ...espacio,
+        imagenes: [
+          ...nuevasFotos,
+          ...espacio.imagenes.filter(
+            (url) => !nuevasFotos.includes(url)
+          ),
+        ],
+      },
+      subida: false,
+      motivo:
+        error?.codigo === 'SIN_CONEXION'
+          ? 'Sin conexión: la foto quedó solo en este teléfono.'
+          : 'La API no tiene el endpoint de fotos: la foto quedó solo en este teléfono.',
     };
   }
 }
