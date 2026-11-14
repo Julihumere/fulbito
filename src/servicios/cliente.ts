@@ -5,6 +5,7 @@
  * Las pantallas no se enteran del cambio.
  */
 import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import * as Network from 'expo-network';
 import { leerToken } from '@/almacenamiento/token';
 import { configuracionMocks } from '@/mocks/configuracion';
@@ -160,31 +161,21 @@ export async function pedirLista<T>(
   return resultado;
 }
 
-const MIME_POR_EXTENSION: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-  m4a: 'audio/m4a',
-  aac: 'audio/aac',
-  mp3: 'audio/mpeg',
-  mp4: 'video/mp4',
-};
-
 /** POST /archivos (multipart/form-data, campo `archivo`). */
 export async function subirArchivo(uri: string): Promise<ArchivoSubido> {
   if (!(await hayConexion())) throw errorSinConexion('El dispositivo figura sin conexión.');
 
   const extension = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
   const nombre = uri.split('/').pop()?.split('?')[0] ?? `archivo-${Date.now()}.${extension}`;
-  const tipo = MIME_POR_EXTENSION[extension] ?? 'application/octet-stream';
   const formulario = new FormData();
   if (Platform.OS === 'web') {
     const blob = await (await fetch(uri)).blob();
     formulario.append('archivo', blob, nombre);
   } else {
-    // React Native entiende { uri, name, type }; TypeScript espera un Blob.
-    formulario.append('archivo', { uri, name: nombre, type: tipo } as unknown as Blob);
+    // expo/fetch no acepta `{ uri, name, type }`: hay que mandar un File real,
+    // que implementa Blob y expone bytes().
+    const archivo = new File(uri);
+    formulario.append('archivo', archivo, archivo.name || nombre);
   }
 
   let respuesta: Response;
