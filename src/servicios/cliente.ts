@@ -24,19 +24,26 @@ export class ErrorApi extends Error {
   constructor(
     public readonly codigo: CodigoError,
     mensaje: string,
+    public readonly estado?: number,
   ) {
     super(mensaje);
     this.name = 'ErrorApi';
   }
 }
 
-export const errorSinConexion = () =>
-  new ErrorApi('SIN_CONEXION', 'No hay conexión. Revisá los datos o el wifi y probá de nuevo.');
+export const errorSinConexion = (detalle?: string) =>
+  new ErrorApi(
+    'SIN_CONEXION',
+    `No hay conexión. Revisá los datos o el wifi y probá de nuevo.${detalle ? ` (${detalle})` : ''}`,
+  );
 
 /** Convierte cualquier cosa atrapada en un ErrorApi con un mensaje mostrable. */
 export function aErrorApi(e: unknown): ErrorApi {
   if (e instanceof ErrorApi) return e;
-  return new ErrorApi('ERROR_DESCONOCIDO', 'Algo falló del lado nuestro. Probá de nuevo en un rato.');
+  if (e instanceof Error) {
+    return new ErrorApi('ERROR_DESCONOCIDO', `${e.name}: ${e.message}`);
+  }
+  return new ErrorApi('ERROR_DESCONOCIDO', `Algo falló del lado nuestro: ${String(e)}`);
 }
 
 async function hayConexion(): Promise<boolean> {
@@ -75,16 +82,16 @@ async function leerJson(respuesta: Response): Promise<unknown> {
 function errorDeRespuesta(json: unknown, status: number): ErrorApi {
   const respuesta = json as RespuestaApi<unknown> | null;
   if (respuesta && typeof respuesta === 'object' && esRespuestaError(respuesta)) {
-    return new ErrorApi(respuesta.error.codigo, respuesta.error.mensaje);
+    return new ErrorApi(respuesta.error.codigo, respuesta.error.mensaje, status);
   }
-  return new ErrorApi('ERROR_DESCONOCIDO', `El servidor respondió con un error (${status}).`);
+  return new ErrorApi('ERROR_DESCONOCIDO', `El servidor respondió con un error (${status}).`, status);
 }
 
 export async function pedir<T>(
   ruta: string,
   opciones: { metodo?: Metodo; cuerpo?: unknown } = {},
 ): Promise<RespuestaExito<T>> {
-  if (!(await hayConexion())) throw errorSinConexion();
+  if (!(await hayConexion())) throw errorSinConexion('El dispositivo figura sin conexión.');
 
   let respuesta: Response;
   try {
@@ -93,8 +100,8 @@ export async function pedir<T>(
       headers: await construirHeaders(opciones.cuerpo !== undefined),
       body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
     });
-  } catch {
-    throw errorSinConexion();
+  } catch (e) {
+    throw errorSinConexion(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
   }
 
   // DELETE exitoso: 204 sin cuerpo.
@@ -166,7 +173,7 @@ const MIME_POR_EXTENSION: Record<string, string> = {
 
 /** POST /archivos (multipart/form-data, campo `archivo`). */
 export async function subirArchivo(uri: string): Promise<ArchivoSubido> {
-  if (!(await hayConexion())) throw errorSinConexion();
+  if (!(await hayConexion())) throw errorSinConexion('El dispositivo figura sin conexión.');
 
   const extension = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
   const nombre = uri.split('/').pop()?.split('?')[0] ?? `archivo-${Date.now()}.${extension}`;
@@ -187,8 +194,8 @@ export async function subirArchivo(uri: string): Promise<ArchivoSubido> {
       headers: await construirHeaders(false),
       body: formulario,
     });
-  } catch {
-    throw errorSinConexion();
+  } catch (e) {
+    throw errorSinConexion(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
   }
 
   const json = await leerJson(respuesta);
@@ -210,7 +217,7 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function simular<T>(
   producir: (token: string | null) => RespuestaApi<T> | Promise<RespuestaApi<T>>,
 ): Promise<RespuestaExito<T>> {
-  if (!(await hayConexion())) throw errorSinConexion();
+  if (!(await hayConexion())) throw errorSinConexion('El dispositivo figura sin conexión.');
   await esperar(configuracionMocks.demoraMs);
   if (configuracionMocks.simularErrorDeRed) throw errorSinConexion();
 

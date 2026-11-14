@@ -1,7 +1,16 @@
 import * as servidor from '@/mocks/servidor';
 import { CLAVES, guardarEnCache, leerDeCache } from '@/almacenamiento/cache';
-import type { Deporte, Espacio } from '@/tipos';
-import { pedir, pedirLista, simular, subirArchivo, USAR_MOCKS, ErrorApi } from './cliente';
+import type { ArchivoSubido, Deporte, Espacio } from '@/tipos';
+import {
+  aErrorApi,
+  pedir,
+  pedirLista,
+  simular,
+  subirArchivo,
+  USAR_MOCKS,
+  ErrorApi,
+  URL_API,
+} from './cliente';
 
 type FotosLocales = Record<string, string[]>;
 
@@ -73,6 +82,13 @@ export interface ResultadoFoto {
   motivo?: string;
 }
 
+/** Texto largo con endpoint, código y HTTP, para copiar y pasar directo. */
+function detalleDeError(e: unknown, contexto: string): string {
+  const error = e instanceof ErrorApi ? e : aErrorApi(e);
+  const estado = error.estado ? ` (HTTP ${error.estado})` : '';
+  return `${contexto} → ${error.codigo}${estado}: ${error.message}`;
+}
+
 /**
  * Guarda una copia local de la foto y la sube a la API para asociarla al
  * espacio con POST /espacios/:id/imagenes. Así queda guardada en el servidor
@@ -112,8 +128,36 @@ export async function agregarFoto(
     [claveEspacio]: nuevasFotos,
   });
 
+  const soloLocal = async (motivo: string): Promise<ResultadoFoto> => {
+    const espacio = espacioAnterior ?? (await obtenerEspacio(id));
+    return {
+      espacio: {
+        ...espacio,
+        imagenes: [
+          ...nuevasFotos,
+          ...espacio.imagenes.filter(
+            (url) => !nuevasFotos.includes(url)
+          ),
+        ],
+      },
+      subida: false,
+      motivo,
+    };
+  };
+
+  let subido: ArchivoSubido;
   try {
-    const subido = await subirArchivo(uriLocal);
+    subido = await subirArchivo(uriLocal);
+  } catch (e) {
+    return soloLocal(
+      `No se pudo subir la foto. ${detalleDeError(
+        e,
+        `POST /archivos (${URL_API})`
+      )} Quedó guardada solo en este teléfono.`
+    );
+  }
+
+  try {
     const r = await pedir<Espacio>(
       `/espacios/${encodeURIComponent(id)}/imagenes`,
       { metodo: 'POST', cuerpo: { url: subido.url } }
@@ -139,30 +183,11 @@ export async function agregarFoto(
       subida: true,
     };
   } catch (e) {
-    const error = e instanceof ErrorApi ? e : null;
-    const apiViejaOSinRed =
-      error?.codigo === 'RUTA_NO_ENCONTRADA' ||
-      error?.codigo === 'SIN_CONEXION';
-
-    if (!apiViejaOSinRed) throw e;
-
-    const espacio = espacioAnterior ?? await obtenerEspacio(id);
-
-    return {
-      espacio: {
-        ...espacio,
-        imagenes: [
-          ...nuevasFotos,
-          ...espacio.imagenes.filter(
-            (url) => !nuevasFotos.includes(url)
-          ),
-        ],
-      },
-      subida: false,
-      motivo:
-        error?.codigo === 'SIN_CONEXION'
-          ? 'Sin conexión: la foto quedó solo en este teléfono.'
-          : 'La API no tiene el endpoint de fotos: la foto quedó solo en este teléfono.',
-    };
+    return soloLocal(
+      `La foto se subió, pero no se pudo asociar al espacio. ${detalleDeError(
+        e,
+        `POST /espacios/${id}/imagenes`
+      )} Quedó guardada solo en este teléfono.`
+    );
   }
 }

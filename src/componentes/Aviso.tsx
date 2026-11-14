@@ -26,7 +26,7 @@ export function Aviso({ tipo, titulo, detalle, icono, accion }: Props) {
             {titulo}
           </Texto>
           {detalle ? (
-            <Texto variante="etiqueta" color={color}>
+            <Texto variante="etiqueta" color={color} selectable>
               {detalle}
             </Texto>
           ) : null}
