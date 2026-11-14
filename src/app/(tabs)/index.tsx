@@ -146,10 +146,6 @@ export default function Inicio() {
   const sinConexion =
     red.isConnected === false || red.isInternetReachable === false;
 
-  console.log(red);
-
-  console.log(sinConexion);
-
   const deporteDe = (e: Espacio) =>
     catalogo.deportes.find((d) => d.id === e.deporteId);
 

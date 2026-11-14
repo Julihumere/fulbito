@@ -85,7 +85,7 @@ export default function Fijas() {
           {error && <Aviso tipo="error" titulo="No se pudieron cargar" detalle={error.message} accion={{ titulo: 'Reintentar', onPress: cargar }} />}
         </View>
       }
-      ListEmptyComponent={fijas ? <Texto color={c.textoSuave}>No hay reservas fijas cargadas.</Texto> : null}
+      ListEmptyComponent={fijas ? <Texto color={c.textoSuave}>No hay reservas fijas cargadas.</Texto> : undefined}
       renderItem={({ item }) => {
         const activa = vigente(item);
         return (

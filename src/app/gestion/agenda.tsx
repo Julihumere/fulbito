@@ -99,7 +99,7 @@ export default function Agenda() {
           <Texto color={c.textoSuave} centrado style={estilos.vacio}>
             No hay turnos ocupados este día.
           </Texto>
-        ) : agenda.error ? null : (
+        ) : agenda.error ? undefined : (
           <ActivityIndicator color={c.cesped} size="large" style={estilos.vacio} />
         )
       }

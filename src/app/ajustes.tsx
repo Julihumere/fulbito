@@ -171,6 +171,7 @@ export default function Ajustes() {
               compacto
               icono="notifications-outline"
               onPress={activarNotificaciones}
+              cargando={registrando}
             />
           )}
         </View>
