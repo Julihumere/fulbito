@@ -34,7 +34,7 @@ export default function Precios() {
   return (
     <ScrollView style={{ backgroundColor: c.fondo }} contentContainerStyle={estilos.pantalla} keyboardShouldPersistTaps="handled">
       <Texto variante="etiqueta" color={c.textoSuave}>
-        El precio nuevo se muestra en la grilla desde que se guarda. Las reservas ya hechas mantienen el suyo hasta que se defina otra cosa (pregunta 16).
+        El precio nuevo se muestra en la grilla desde que se guarda. La app no cobra: se paga en el lugar.
       </Texto>
       {mensaje && <Aviso tipo={mensaje.tipo} titulo={mensaje.titulo} detalle={mensaje.detalle} icono={mensaje.tipo === 'aviso' ? 'checkmark-circle-outline' : undefined} />}
       {catalogo.espacios.map((e) => (
