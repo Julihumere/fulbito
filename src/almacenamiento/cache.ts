@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 
 export const CLAVES = {
   espacios: 'cache.espacios',
+  fotosEspacios: 'app.fotosEspacios',
   deportes: 'cache.deportes',
   usuario: 'cache.usuario',
   misReservas: 'cache.misReservas',
