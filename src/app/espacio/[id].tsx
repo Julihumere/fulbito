@@ -302,9 +302,9 @@ export default function FichaEspacio() {
         <View style={[estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]}>
           <Texto peso="seminegrita">Estado de la cancha</Texto>
           <Texto variante="etiqueta" color={c.textoSuave}>
-            Subí una foto de cómo está hoy (el piso, la red, si está anegada). Se muestra primera en la galería.
+            Subí fotos de cómo está hoy (el piso, la red, si está anegada). Las primeras se muestran al principio de la galería.
           </Texto>
-          <Boton titulo="Subir foto de la galería" variante="secundario" compacto icono="image-outline" onPress={subirFotoEstado} cargando={subiendo} />
+          <Boton titulo="Subir fotos de la galería" variante="secundario" compacto icono="image-outline" onPress={subirFotoEstado} cargando={subiendo} />
         </View>
       )}
 

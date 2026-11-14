@@ -3,8 +3,8 @@
  * Usa la API nueva de expo-file-system (File, Directory, Paths): la vieja
  * tira error en tiempo de ejecución, como advierte el documento.
  *
- * La descarga es a pedido (botón en la ficha): once videos de 30 segundos
- * pesan decenas de MB y no queremos gastar los datos de nadie sin avisar.
+ * La ficha dispara la descarga al abrirse con señal: se baja sólo lo del
+ * espacio que se está mirando, para que después se vea sin datos.
  */
 import { Directory, File, Paths } from 'expo-file-system';
 import type { Espacio } from '@/tipos';
