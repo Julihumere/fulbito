@@ -2,14 +2,14 @@
 
 App de reservas de los espacios deportivos municipales de Villaguay (Entre Ríos). Es el TP final de la Tecnicatura Universitaria en Desarrollo Web.
 
-React Native · Expo SDK 57 · TypeScript · Expo Router.
+React Native · Expo SDK 58 · TypeScript · Expo Router.
 
 ## Cómo correrla
 
 Necesitás:
 
 - Node 20 o más nuevo.
-- La app **Expo Go** en el teléfono, compatible con el SDK 57.
+- La app **Expo Go** en el teléfono, compatible con el SDK 58.
 - La API de la cátedra corriendo (ver abajo) o dejar los mocks.
 
 ```bash
@@ -33,6 +33,8 @@ EXPO_PUBLIC_USAR_MOCKS=false
 # API desplegada y expuesta a internet (Dokploy + Tailscale Funnel), es la que
 # ya está configurada:
 EXPO_PUBLIC_API_URL=https://fulbito-api.taild5debe.ts.net:8443
+# WhatsApp de la Dirección (código de país, sin signos)
+EXPO_PUBLIC_WHATSAPP_DIRECCION=5493456267235
 
 # Alternativas para desarrollo local:
 # EXPO_PUBLIC_API_URL=http://localhost:3000
@@ -41,14 +43,16 @@ EXPO_PUBLIC_API_URL=https://fulbito-api.taild5debe.ts.net:8443
 
 Expo lee las variables al compilar: reiniciá con `npx expo start -c`. Si no definís `EXPO_PUBLIC_USAR_MOCKS=false`, la app usa los datos inventados de `src/mocks/` y no necesita la API.
 
-La app ya implementa: registro e ingreso, catálogo, grilla, reservas, cancelación, favoritos, agenda, ingresos por QR, bloqueos, fijas, precios y subida de archivos. El envío de push del servidor queda del lado de la API (`/dispositivos` responde `501` hasta que se complete esa parte).
+La app ya implementa: registro e ingreso, catálogo, grilla, reservas, cancelación, favoritos, agenda, ingresos por QR, bloqueos, fijas, precios, carga múltiple de fotos y cancelación de reservas del día por el personal. El envío de push del servidor ya está implementado en la API; la app pide permiso y registra el teléfono desde Ajustes. En Android se prueba con development build, no con Expo Go.
 
 ### Qué anda en Expo Go y qué no
 
-- **Mapa** (`react-native-maps`): anda en Expo Go sin clave. El build de producción de Android necesita una clave de Google Maps.
-- **Recordatorios**: son notificaciones locales y andan en Expo Go. El push del servidor necesita un development build y que la API implemente `/dispositivos`.
+- **Mapa** (`react-native-maps`): anda en Expo Go. La clave de Google Maps para el build de Android ya está configurada en `app.json`; probar el APK.
+- **Recordatorios**: son notificaciones locales y andan en Expo Go. El push del servidor necesita un development build; la API ya implementa `/dispositivos` y la app registra el teléfono desde Ajustes.
 - **Huella**: anda en Android. Face ID en iPhone necesita un development build.
 - **Cámara**: el escaneo de QR necesita un teléfono con cámara; en web no está disponible.
+
+Para el build de Android, `app.json` referencia `./google-services.json` (Firebase). No está versionado: pedilo al grupo antes de correr `eas build`.
 
 ## Usuarios de prueba
 

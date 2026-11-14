@@ -98,7 +98,7 @@ El documento pide avisar antes de decidir. Estas decisiones se tomaron sólo par
 9. **Máximo de tres** = confirmadas que todavía no terminaron. Las fijas no cuentan (pregunta 12).
 10. **Personas:** de 1 a la capacidad del espacio (pregunta 10).
 11. **Escaneo.** El encargado elige qué espacio controla. La reserva tiene que ser de hoy y de ese espacio. Sin señal, valida contra la agenda de hoy guardada y registra el ingreso cuando vuelve la conexión (pregunta 13). "No se presentó" se marca a mano, recién cuando el turno empezó (pregunta 14).
-12. **Roles.** Encargado y administrador pueden hacer todo lo de la sección 6 (pregunta 15).
+12. **Roles.** El encargado hace la operación del día: agenda, reservas, escaneo y bloqueos. El administrador suma las reservas fijas y los precios (pregunta 15).
 13. **Avisos de favoritos.** Sólo por cancelaciones y sólo para turnos de los próximos 7 días.
 14. **Fotos del estado de la cancha.** Las sube el personal desde la ficha y aparecen primeras en la galería (pregunta 17).
 
